@@ -64,10 +64,9 @@ class MainActivity : Activity() {
         appRepository = AppRepository(this)
         policyManager = KioskPolicyManager(this)
         refreshApps()
-        policyManager.applyDeviceOwnerPolicies(preferences.getAllowedPackages())
+        applyCurrentPolicies()
         ConfigSyncScheduler.schedule(this)
         showLauncherScreen()
-        maybeSyncRemoteConfig()
     }
 
     override fun onResume() {
@@ -75,9 +74,9 @@ class MainActivity : Activity() {
         enterImmersiveMode()
         if (::policyManager.isInitialized) {
             refreshApps()
-            policyManager.applyDeviceOwnerPolicies(preferences.getAllowedPackages())
+            applyCurrentPolicies()
             policyManager.startLockTaskIfReady(this)
-            maybeSyncRemoteConfig()
+            maybeSyncRemoteConfig(force = currentScreen == Screen.LAUNCHER)
         }
     }
 
@@ -99,17 +98,27 @@ class MainActivity : Activity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != REQUEST_CALL_PHONE) return
-
-        val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
-        if (granted) {
-            Toast.makeText(this, R.string.toast_call_permission_enabled, Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, R.string.toast_call_permission_missing, Toast.LENGTH_LONG).show()
+        when (requestCode) {
+            REQUEST_CALL_PHONE -> {
+                val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+                if (granted) {
+                    Toast.makeText(this, R.string.toast_call_permission_enabled, Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, R.string.toast_call_permission_missing, Toast.LENGTH_LONG).show()
+                }
+            }
+            REQUEST_LOCATION -> {
+                val granted = grantResults.any { it == PackageManager.PERMISSION_GRANTED }
+                if (granted) {
+                    Toast.makeText(this, R.string.toast_location_permission_enabled, Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, R.string.toast_location_permission_missing, Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 
-    private fun showLauncherScreen() {
+    private fun showLauncherScreen(syncOnOpen: Boolean = true) {
         currentScreen = Screen.LAUNCHER
         preferences.clearAdminSession()
         refreshApps()
@@ -117,6 +126,7 @@ class MainActivity : Activity() {
         val allowedPackages = preferences.getAllowedPackages()
         val allowedApps = launchableApps.filter { it.packageName in allowedPackages }
         val quickCallContacts = preferences.getQuickCallContacts()
+        val lockdownEnabled = preferences.isLockdownEnabled()
         val root = homeRoot()
 
         root.addView(kioskHeader(onAdminClick = { showAdminPinDialog() }))
@@ -134,28 +144,33 @@ class MainActivity : Activity() {
 
         content.addView(statusStrip(allowedApps.size, quickCallContacts.size))
 
-        content.addView(homeSectionTitle(getString(R.string.home_section_quick_call)))
-        if (quickCallContacts.isEmpty()) {
-            content.addView(emptyStateCard(getString(R.string.home_no_quick_contacts)))
+        if (lockdownEnabled) {
+            content.addView(lockdownCard())
         } else {
-            quickCallContacts.forEach { contact ->
-                content.addView(quickCallCard(contact))
+            content.addView(homeSectionTitle(getString(R.string.home_section_quick_call)))
+            if (quickCallContacts.isEmpty()) {
+                content.addView(emptyStateCard(getString(R.string.home_no_quick_contacts)))
+            } else {
+                quickCallContacts.forEach { contact ->
+                    content.addView(quickCallCard(contact))
+                }
             }
-        }
 
-        content.addView(homeSectionTitle(getString(R.string.home_section_allowed_apps)))
-        if (allowedApps.isEmpty()) {
-            content.addView(emptyStateCard(getString(R.string.home_no_allowed_apps)))
-        } else {
-            allowedApps.forEach { app ->
-                content.addView(allowedAppCard(app))
+            content.addView(homeSectionTitle(getString(R.string.home_section_allowed_apps)))
+            if (allowedApps.isEmpty()) {
+                content.addView(emptyStateCard(getString(R.string.home_no_allowed_apps)))
+            } else {
+                allowedApps.forEach { app ->
+                    content.addView(allowedAppCard(app))
+                }
             }
         }
 
         setContentView(root)
         enterImmersiveMode()
-        policyManager.applyDeviceOwnerPolicies(allowedPackages)
+        applyCurrentPolicies()
         policyManager.startLockTaskIfReady(this)
+        maybeSyncRemoteConfig(force = syncOnOpen)
     }
 
     private fun showAdminPinDialog() {
@@ -219,7 +234,7 @@ class MainActivity : Activity() {
                 onBack = { showLauncherScreen() },
                 onSave = {
                     preferences.setAllowedPackages(selectedPackages)
-                    policyManager.applyDeviceOwnerPolicies(selectedPackages)
+                    applyCurrentPolicies()
                     Toast.makeText(this, R.string.toast_allowed_list_saved, Toast.LENGTH_SHORT).show()
                     showLauncherScreen()
                 }
@@ -312,9 +327,9 @@ class MainActivity : Activity() {
             startActivity(intent)
         }.isSuccess
 
-    private fun maybeSyncRemoteConfig() {
+    private fun maybeSyncRemoteConfig(force: Boolean = false) {
         if (syncInFlight) return
-        if (!ConfigSyncer(this).shouldSyncNow()) return
+        if (!ConfigSyncer(this).shouldSyncNow(force = force)) return
         syncRemoteConfig(showToast = false, refreshAfter = currentScreen == Screen.LAUNCHER)
     }
 
@@ -326,18 +341,23 @@ class MainActivity : Activity() {
             val result = ConfigSyncer(applicationContext).sync()
             runOnUiThread {
                 syncInFlight = false
-                policyManager.applyDeviceOwnerPolicies(preferences.getAllowedPackages())
+                applyCurrentPolicies()
                 if (showToast) {
                     Toast.makeText(this, result.message, Toast.LENGTH_LONG).show()
                 }
                 if (refreshAfter) {
-                    if (currentScreen == Screen.ADMIN) showAdminScreen() else showLauncherScreen()
+                    if (currentScreen == Screen.ADMIN) showAdminScreen() else showLauncherScreen(syncOnOpen = false)
                 }
             }
         }.start()
     }
 
     private fun launchApp(app: LaunchableApp) {
+        if (preferences.isLockdownEnabled()) {
+            Toast.makeText(this, R.string.toast_lockdown_active, Toast.LENGTH_LONG).show()
+            return
+        }
+
         val intent = packageManager.getLaunchIntentForPackage(app.packageName)
         if (intent == null) {
             Toast.makeText(this, getString(R.string.toast_open_failed, app.label), Toast.LENGTH_SHORT).show()
@@ -364,6 +384,11 @@ class MainActivity : Activity() {
     }
 
     private fun startQuickCall(contact: QuickCallContact) {
+        if (preferences.isLockdownEnabled()) {
+            Toast.makeText(this, R.string.toast_lockdown_active, Toast.LENGTH_LONG).show()
+            return
+        }
+
         if (!hasCallPermission()) {
             Toast.makeText(
                 this,
@@ -390,6 +415,17 @@ class MainActivity : Activity() {
     private fun hasCallPermission(): Boolean =
         checkSelfPermission(Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED
 
+    private fun hasLocationPermission(): Boolean =
+        checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+    private fun applyCurrentPolicies() {
+        policyManager.applyDeviceOwnerPolicies(
+            allowedPackages = preferences.getAllowedPackages(),
+            lockdownEnabled = preferences.isLockdownEnabled()
+        )
+    }
+
     private fun refreshApps() {
         launchableApps = appRepository.getLaunchableApps()
     }
@@ -415,6 +451,7 @@ class MainActivity : Activity() {
         val deviceAdminStatus = if (policyManager.isDeviceAdminActive()) getString(R.string.status_enabled) else getString(R.string.status_disabled)
         val accessibilityStatus = if (isAccessibilityProtectionEnabled()) getString(R.string.status_enabled) else getString(R.string.status_disabled)
         val callStatus = if (hasCallPermission()) getString(R.string.status_calls_allowed) else getString(R.string.status_calls_not_allowed)
+        val locationStatus = if (hasLocationPermission()) getString(R.string.status_allowed) else getString(R.string.status_not_allowed)
 
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -423,7 +460,8 @@ class MainActivity : Activity() {
                     R.string.fallback_status,
                     deviceAdminStatus,
                     accessibilityStatus,
-                    callStatus
+                    callStatus,
+                    locationStatus
                 )
             ))
             addView(adminActionButton(getString(R.string.button_enable_device_admin)) {
@@ -442,6 +480,16 @@ class MainActivity : Activity() {
             addView(adminActionButton(getString(R.string.button_allow_calls)) {
                 preferences.markAdminSessionUnlocked()
                 requestPermissions(arrayOf(Manifest.permission.CALL_PHONE), REQUEST_CALL_PHONE)
+            }, matchWrapParams(top = 8))
+            addView(adminActionButton(getString(R.string.button_allow_location)) {
+                preferences.markAdminSessionUnlocked()
+                requestPermissions(
+                    arrayOf(
+                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ),
+                    REQUEST_LOCATION
+                )
             }, matchWrapParams(top = 8))
         }
         return section(getString(R.string.section_fallback_protection), container)
@@ -880,6 +928,27 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         }
 
+    private fun lockdownCard(): View =
+        homeCardContainer(minHeightDp = 180, radiusDp = 24).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = roundedBackground(HomeCageColors.CardRaised, HomeCageColors.WarningRed, radiusDp = 24)
+            addView(TextView(this@MainActivity).apply {
+                text = getString(R.string.home_lockdown_title)
+                textSize = 22f
+                setTextColor(HomeCageColors.TextPrimary)
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(TextView(this@MainActivity).apply {
+                text = getString(R.string.home_lockdown_message)
+                textSize = 15f
+                setTextColor(HomeCageColors.TextSecondary)
+                gravity = Gravity.CENTER
+                setPadding(0, dp(12), 0, 0)
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+
     private fun homeCardContainer(minHeightDp: Int, radiusDp: Int): LinearLayout =
         LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -1192,6 +1261,7 @@ class MainActivity : Activity() {
     private companion object {
         const val ACTION_ACCESSIBILITY_DETAILS_SETTINGS = "android.settings.ACCESSIBILITY_DETAILS_SETTINGS"
         const val REQUEST_CALL_PHONE = 4101
+        const val REQUEST_LOCATION = 4102
         const val STATUS_SEPARATOR = "\u00b7"
         val COLOR_BACKGROUND: Int = Color.rgb(248, 250, 252)
         val COLOR_SURFACE: Int = Color.WHITE

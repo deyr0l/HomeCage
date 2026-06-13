@@ -30,6 +30,8 @@
     <string name="home_quick_contacts_many">%1$d contactos rápidos</string>
     <string name="home_no_quick_contacts">No hay contactos rápidos configurados</string>
     <string name="home_no_allowed_apps">Aún no hay apps permitidas</string>
+    <string name="home_lockdown_title">Dispositivo bloqueado</string>
+    <string name="home_lockdown_message">El modo perdido remoto está activo. Apps, llamadas y ajustes quedan bloqueados hasta que el servidor lo desactive.</string>
     <string name="home_emergency_contact">Contacto de emergencia</string>
     <string name="home_allowed_app_label">App permitida</string>
     <string name="home_admin_content_description">Abrir Admin</string>
@@ -52,6 +54,8 @@
 
     <string name="toast_call_permission_enabled">Permiso de llamadas activado</string>
     <string name="toast_call_permission_missing">Sin permiso de llamadas, la llamada rápida no funciona</string>
+    <string name="toast_location_permission_enabled">Permiso de ubicación activado</string>
+    <string name="toast_location_permission_missing">Sin permiso de ubicación, las solicitudes del servidor reportarán acceso denegado</string>
     <string name="toast_allowed_list_saved">Lista guardada</string>
     <string name="toast_kiosk_paused">Kiosk detenido hasta volver a la app</string>
     <string name="toast_protection_disabled">Protección desactivada. Puedes eliminar la app.</string>
@@ -59,6 +63,7 @@
     <string name="toast_launch_blocked">Inicio bloqueado por Android</string>
     <string name="toast_quick_calls_need_permission">Las llamadas rápidas requieren permiso de llamadas en Admin</string>
     <string name="toast_call_failed">No se pudo iniciar la llamada</string>
+    <string name="toast_lockdown_active">El modo perdido remoto está activo</string>
     <string name="toast_server_saved">Ajustes del servidor guardados</string>
     <string name="toast_quick_calls_saved">Llamadas rápidas guardadas</string>
     <string name="toast_language_saved">Idioma guardado</string>
@@ -85,12 +90,13 @@
     <string name="status_not_allowed">no permitido</string>
     <string name="status_calls_allowed">permitidas</string>
     <string name="status_calls_not_allowed">no permitidas</string>
-    <string name="fallback_status">Device Admin: %1$s\nProtección Accessibility: %2$s\nLlamadas: %3$s</string>
+    <string name="fallback_status">Device Admin: %1$s\nProtección Accessibility: %2$s\nLlamadas: %3$s\nUbicación: %4$s</string>
     <string name="button_enable_device_admin">Activar Device Admin</string>
     <string name="button_open_accessibility">Abrir Accessibility</string>
     <string name="button_open_accessibility_service">Abrir Accessibility de HomeCage</string>
     <string name="button_open_restricted_settings">Abrir ajustes restringidos</string>
     <string name="button_allow_calls">Permitir llamadas</string>
+    <string name="button_allow_location">Permitir ubicación</string>
     <string name="restricted_settings_help">Si Android dice que se denegó el acceso, abre los ajustes restringidos, toca el menú de tres puntos en la página de HomeCage, elige Allow restricted settings, vuelve aquí y abre Accessibility otra vez.</string>
     <string name="toast_open_settings_failed">No se pudieron abrir los ajustes de Android</string>
 

@@ -11,7 +11,9 @@ import java.net.URL
 
 data class RemoteKioskConfig(
     val allowedPackages: Set<String>,
-    val pin: String?
+    val pin: String?,
+    val lockdownEnabled: Boolean,
+    val locationRequestId: Long
 )
 
 class RemoteConfigClient(
@@ -21,10 +23,13 @@ class RemoteConfigClient(
     fun reportDeviceState(
         deviceId: String,
         installedApps: List<LaunchableApp>,
-        localAllowedPackages: Set<String>
+        localAllowedPackages: Set<String>,
+        lockdownEnabled: Boolean,
+        location: DeviceLocationReport?
     ) {
         val payload = JSONObject().apply {
             put("deviceId", deviceId)
+            put("lockdownEnabled", lockdownEnabled)
             put("installedApps", JSONArray().apply {
                 installedApps.forEach { app ->
                     put(JSONObject().apply {
@@ -37,6 +42,17 @@ class RemoteConfigClient(
             put("localAllowedPackages", JSONArray().apply {
                 localAllowedPackages.sorted().forEach { put(it) }
             })
+            if (location != null) {
+                put("location", JSONObject().apply {
+                    put("requestId", location.requestId)
+                    put("status", location.status)
+                    location.latitude?.let { put("latitude", it) }
+                    location.longitude?.let { put("longitude", it) }
+                    location.accuracyMeters?.let { put("accuracyMeters", it.toDouble()) }
+                    location.provider?.let { put("provider", it) }
+                    location.capturedAtMillis?.let { put("capturedAtMillis", it) }
+                })
+            }
         }
         request(path = "/api/device-state", method = "POST", body = payload.toString())
     }
@@ -61,7 +77,9 @@ class RemoteConfigClient(
         }
         return RemoteKioskConfig(
             allowedPackages = allowedPackages,
-            pin = pin
+            pin = pin,
+            lockdownEnabled = root.optBoolean("lockdownEnabled", false),
+            locationRequestId = root.optLong("locationRequestId", 0L)
         )
     }
 

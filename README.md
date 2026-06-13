@@ -91,11 +91,12 @@ HomeCage keeps the permission set intentionally small:
 | `ACCESS_NETWORK_STATE` | Lets Android schedule sync only when a network is available. Required for JobScheduler network constraints. |
 | `RECEIVE_BOOT_COMPLETED` | Re-schedules background sync after reboot. |
 | `CALL_PHONE` | Optional quick-call buttons. The app does not read contacts. |
+| `ACCESS_COARSE_LOCATION` / `ACCESS_FINE_LOCATION` | Optional server-requested location report for lost-device workflows. HomeCage reads the last known Android location only after the server asks for it. |
 | Device Admin / Device Owner | Prevents a child from removing protection without the admin PIN and enables Lock Task policies. |
 | Accessibility service | Fallback protection on devices where Device Owner is not active. It observes the current foreground package and returns to HomeCage when a blocked app, launcher, installer, or settings screen is opened. |
 | Package visibility query for launcher apps | Lets the admin screen list installed launchable apps. This is not `QUERY_ALL_PACKAGES`. |
 
-Not used: Usage Access (`PACKAGE_USAGE_STATS`), draw-over-other-apps (`SYSTEM_ALERT_WINDOW`), contacts, SMS, location, camera, microphone, notification listener, VPN, or `QUERY_ALL_PACKAGES`.
+Not used: Usage Access (`PACKAGE_USAGE_STATS`), draw-over-other-apps (`SYSTEM_ALERT_WINDOW`), contacts, SMS, camera, microphone, notification listener, VPN, or `QUERY_ALL_PACKAGES`.
 
 ## Accessibility And Restricted Settings
 
@@ -148,6 +149,42 @@ Supported web UI languages:
 /?lang=zh-CN
 /?lang=ja
 ```
+
+Remote config can also enable lost mode and request the device location. Lost mode blocks allowed apps, quick calls, launchers, installers, and settings until the server disables it again. If the phone has no network, it keeps the last local config and tries again later.
+
+Background sync is scheduled roughly every 10 minutes when a network is available. Opening or returning to the HomeCage launcher also forces a sync attempt.
+
+## Home Assistant
+
+HomeCage Server exposes REST endpoints for Home Assistant:
+
+```text
+GET  /api/home-assistant/state
+POST /api/home-assistant/config
+```
+
+`POST /api/home-assistant/config` accepts JSON such as:
+
+```json
+{
+  "lockdownEnabled": true,
+  "requestLocation": true,
+  "allowedPackagesText": "com.android.dialer\norg.example.app"
+}
+```
+
+Optional MQTT Discovery is available when these variables are set on the server:
+
+```env
+HOMECAGE_HA_MQTT_HOST=homeassistant.local
+HOMECAGE_HA_MQTT_PORT=1883
+HOMECAGE_HA_MQTT_USERNAME=
+HOMECAGE_HA_MQTT_PASSWORD=
+HOMECAGE_HA_MQTT_TOPIC_PREFIX=homecage
+HOMECAGE_HA_MQTT_DISCOVERY_PREFIX=homeassistant
+```
+
+MQTT publishes a lost-mode switch, a request-location button, and state sensors for allowed apps, location status, and last phone report.
 
 ## Removal
 

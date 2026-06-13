@@ -73,11 +73,12 @@ Device Owner обычно назначается только на чистом 
 | `ACCESS_NETWORK_STATE` | Android запускает синхронизацию только при доступной сети. |
 | `RECEIVE_BOOT_COMPLETED` | Повторно планирует синхронизацию после перезагрузки. |
 | `CALL_PHONE` | Быстрые вызовы. Приложение не читает контакты. |
+| `ACCESS_COARSE_LOCATION` / `ACCESS_FINE_LOCATION` | Опциональный отчёт локации по запросу сервера для режима потерянного устройства. |
 | Device Admin / Device Owner | Защита от удаления без PIN и включение Lock Task policies. |
 | Accessibility service | Резервная защита: отслеживает открытый пакет и возвращает в HomeCage, если открыт запрещенный экран. |
 | Package visibility для launcher-приложений | Список приложений в админке. Это не `QUERY_ALL_PACKAGES`. |
 
-Не используется: Usage Access (`PACKAGE_USAGE_STATS`), поверх окон (`SYSTEM_ALERT_WINDOW`), контакты, SMS, геолокация, камера, микрофон, notification listener, VPN и `QUERY_ALL_PACKAGES`.
+Не используется: Usage Access (`PACKAGE_USAGE_STATS`), поверх окон (`SYSTEM_ALERT_WINDOW`), контакты, SMS, камера, микрофон, notification listener, VPN и `QUERY_ALL_PACKAGES`.
 
 ## Accessibility и Restricted Settings
 
@@ -88,6 +89,35 @@ Device Owner обычно назначается только на чистом 
 3. Меню с тремя точками.
 4. `Allow restricted settings`.
 5. Вернитесь в HomeCage Admin и включите Accessibility service.
+
+## Удаленный сервер
+
+Приложение работает без сервера и хранит локальный конфиг. Если сервер задан и доступен, серверный конфиг перезаписывает локальный allowlist.
+
+Сервер может включить режим потерянного устройства и запросить локацию. В режиме потери блокируются разрешенные приложения, быстрые вызовы, лаунчеры, установщики и настройки, пока сервер не выключит режим.
+
+Синхронизация планируется примерно раз в 10 минут при доступной сети. Открытие или возврат на главный экран HomeCage также запускает попытку синхронизации. Если сети нет, приложение остается на прежнем локальном конфиге.
+
+## Home Assistant
+
+HomeCage Server дает REST endpoints:
+
+```text
+GET  /api/home-assistant/state
+POST /api/home-assistant/config
+```
+
+Пример обновления:
+
+```json
+{
+  "lockdownEnabled": true,
+  "requestLocation": true,
+  "allowedPackagesText": "com.android.dialer\norg.example.app"
+}
+```
+
+Если задать `HOMECAGE_HA_MQTT_HOST`, сервер публикует MQTT Discovery: switch режима потери, кнопку запроса локации и sensors для количества разрешенных приложений, статуса локации и последнего отчета телефона.
 
 ## Удаление
 

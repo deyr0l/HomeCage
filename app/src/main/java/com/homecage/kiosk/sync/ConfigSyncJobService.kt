@@ -9,7 +9,11 @@ class ConfigSyncJobService : JobService() {
 
     override fun onStartJob(params: JobParameters): Boolean {
         worker = Thread {
-            ConfigSyncer(applicationContext).sync()
+            val syncer = ConfigSyncer(applicationContext)
+            if (syncer.shouldSyncNow()) {
+                syncer.sync()
+            }
+            ConfigSyncScheduler.schedule(applicationContext)
             jobFinished(params, false)
         }.also { it.start() }
         return true

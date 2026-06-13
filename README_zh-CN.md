@@ -62,11 +62,12 @@ Device Owner 通常需要在添加账号之前，在干净设备上设置。
 | `ACCESS_NETWORK_STATE` | 仅在网络可用时调度同步。 |
 | `RECEIVE_BOOT_COMPLETED` | 重启后重新调度同步。 |
 | `CALL_PHONE` | 快速拨号按钮。应用不会读取联系人。 |
+| `ACCESS_COARSE_LOCATION` / `ACCESS_FINE_LOCATION` | 服务器请求时可选上报位置，用于丢失设备流程。 |
 | Device Admin / Device Owner | 防止孩子无 PIN 移除保护，并启用 Lock Task。 |
 | Accessibility service | 备用保护：观察前台包名，如果打开未允许的屏幕则返回 HomeCage。 |
 | launcher 应用可见性查询 | 在管理界面列出可启动应用。不是 `QUERY_ALL_PACKAGES`。 |
 
-未使用：Usage Access (`PACKAGE_USAGE_STATS`)、悬浮窗 (`SYSTEM_ALERT_WINDOW`)、联系人、SMS、位置、相机、麦克风、notification listener、VPN、`QUERY_ALL_PACKAGES`。
+未使用：Usage Access (`PACKAGE_USAGE_STATS`)、悬浮窗 (`SYSTEM_ALERT_WINDOW`)、联系人、SMS、相机、麦克风、notification listener、VPN、`QUERY_ALL_PACKAGES`。
 
 ## Accessibility 和 restricted settings
 
@@ -77,6 +78,35 @@ Android 13+ 上，侧载 APK 可能需要手动允许受限设置：
 3. 三点菜单。
 4. `Allow restricted settings`。
 5. 返回 HomeCage Admin 并启用 Accessibility。
+
+## 远程服务器
+
+应用可以在没有服务器的情况下运行，并保留本地配置。如果配置了服务器且服务器可用，服务器配置会覆盖本地允许列表。
+
+服务器可以启用丢失模式并请求设备位置。丢失模式会阻止已允许应用、快速拨号、启动器、安装器和设置，直到服务器关闭该模式。
+
+有网络时同步大约每 10 分钟调度一次。打开或返回 HomeCage 启动器也会强制尝试同步。如果没有网络，应用会继续使用最后的本地配置。
+
+## Home Assistant
+
+HomeCage Server 提供 REST endpoints：
+
+```text
+GET  /api/home-assistant/state
+POST /api/home-assistant/config
+```
+
+示例：
+
+```json
+{
+  "lockdownEnabled": true,
+  "requestLocation": true,
+  "allowedPackagesText": "com.android.dialer\norg.example.app"
+}
+```
+
+如果设置 `HOMECAGE_HA_MQTT_HOST`，服务器会发布 MQTT Discovery：丢失模式 switch、请求位置按钮，以及允许应用数量、位置状态和最后手机报告的 sensors。
 
 ## 卸载
 

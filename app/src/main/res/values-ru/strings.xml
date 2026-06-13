@@ -30,6 +30,8 @@
     <string name="home_quick_contacts_many">%1$d быстрых контактов</string>
     <string name="home_no_quick_contacts">Быстрые контакты не настроены</string>
     <string name="home_no_allowed_apps">Разрешенных приложений пока нет</string>
+    <string name="home_lockdown_title">Устройство заблокировано</string>
+    <string name="home_lockdown_message">Активен удаленный режим потери. Приложения, звонки и настройки заблокированы, пока сервер не отключит режим.</string>
     <string name="home_emergency_contact">Экстренный контакт</string>
     <string name="home_allowed_app_label">Разрешенное приложение</string>
     <string name="home_admin_content_description">Открыть админку</string>
@@ -52,6 +54,8 @@
 
     <string name="toast_call_permission_enabled">Разрешение на звонки включено</string>
     <string name="toast_call_permission_missing">Без разрешения на звонки быстрый вызов не работает</string>
+    <string name="toast_location_permission_enabled">Разрешение на локацию включено</string>
+    <string name="toast_location_permission_missing">Без разрешения на локацию запросы сервера вернут отказ в доступе</string>
     <string name="toast_allowed_list_saved">Список сохранен</string>
     <string name="toast_kiosk_paused">Kiosk остановлен до возврата в приложение</string>
     <string name="toast_protection_disabled">Защита снята. Можно удалить приложение.</string>
@@ -59,6 +63,7 @@
     <string name="toast_launch_blocked">Запуск заблокирован Android</string>
     <string name="toast_quick_calls_need_permission">Быстрые вызовы требуют разрешения на звонки в админке</string>
     <string name="toast_call_failed">Не удалось начать звонок</string>
+    <string name="toast_lockdown_active">Активен удаленный режим потери</string>
     <string name="toast_server_saved">Настройки сервера сохранены</string>
     <string name="toast_quick_calls_saved">Быстрые вызовы сохранены</string>
     <string name="toast_language_saved">Язык сохранен</string>
@@ -85,12 +90,13 @@
     <string name="status_not_allowed">не разрешено</string>
     <string name="status_calls_allowed">разрешены</string>
     <string name="status_calls_not_allowed">не разрешены</string>
-    <string name="fallback_status">Device Admin: %1$s\nAccessibility защита: %2$s\nЗвонки: %3$s</string>
+    <string name="fallback_status">Device Admin: %1$s\nAccessibility защита: %2$s\nЗвонки: %3$s\nЛокация: %4$s</string>
     <string name="button_enable_device_admin">Включить Device Admin</string>
     <string name="button_open_accessibility">Открыть Accessibility</string>
     <string name="button_open_accessibility_service">Открыть Accessibility HomeCage</string>
     <string name="button_open_restricted_settings">Открыть restricted settings</string>
     <string name="button_allow_calls">Разрешить звонки</string>
+    <string name="button_allow_location">Разрешить локацию</string>
     <string name="restricted_settings_help">Если Android пишет, что доступ запрещен: откройте restricted settings, на странице HomeCage нажмите меню с тремя точками, выберите Allow restricted settings, затем вернитесь сюда и снова откройте Accessibility.</string>
     <string name="toast_open_settings_failed">Не удалось открыть настройки Android</string>
 

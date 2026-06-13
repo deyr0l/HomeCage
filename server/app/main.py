@@ -24,6 +24,7 @@ DATA_DIR = Path(env_value("HOMECAGE_DATA_DIR", str(ROOT_DIR / "data")))
 CONFIG_PATH = DATA_DIR / "config.json"
 DEVICE_STATE_PATH = DATA_DIR / "device_state.json"
 ADMIN_TOKEN = env_value("HOMECAGE_ADMIN_TOKEN", "")
+MQTT_CLIENT = None
 DEFAULT_LANGUAGE = "en"
 SUPPORTED_LANGUAGES = ("en", "ru", "es", "zh-CN", "ja")
 LANGUAGE_LABELS = {
@@ -45,6 +46,13 @@ MESSAGES = {
         "extra_packages_help": "Packages missing from the last phone report",
         "language": "Language",
         "last_phone_report": "Phone report",
+        "latest_location": "Latest location",
+        "location_not_reported": "not reported",
+        "location_request": "Location request",
+        "location_status": "Location status: {status}",
+        "lockdown_enabled": "Enable lost mode",
+        "lockdown_help": "When lost mode is enabled, the phone blocks apps, quick calls, launchers, installers, and settings until the server turns it off.",
+        "lockdown_section": "Lost mode",
         "no_data": "no data",
         "pin_label": "New PIN, 4-12 digits. Leave empty to keep current. Current state: {pin_status}.",
         "pin_invalid": "PIN must contain 4-12 digits",
@@ -55,6 +63,7 @@ MESSAGES = {
         "system_badge": "system",
         "title": "HomeCage Admin",
         "allowed_apps": "Allowed apps",
+        "request_location": "Request location",
     },
     "ru": {
         "app_list_empty": "Телефон еще не прислал список приложений. Откройте HomeCage и нажмите синхронизацию.",
@@ -67,6 +76,13 @@ MESSAGES = {
         "extra_packages_help": "Пакеты, которых нет в последнем отчете телефона",
         "language": "Язык",
         "last_phone_report": "Отчет телефона",
+        "latest_location": "Последняя локация",
+        "location_not_reported": "не передавалась",
+        "location_request": "Запрос локации",
+        "location_status": "Статус локации: {status}",
+        "lockdown_enabled": "Включить режим потерянного телефона",
+        "lockdown_help": "Когда режим включен, телефон блокирует приложения, быстрые вызовы, лаунчеры, установщики и настройки, пока сервер не выключит режим.",
+        "lockdown_section": "Режим потери",
         "no_data": "нет данных",
         "pin_label": "Новый PIN, 4-12 цифр. Оставьте пустым, чтобы не менять. Сейчас: {pin_status}.",
         "pin_invalid": "PIN должен содержать 4-12 цифр",
@@ -77,6 +93,7 @@ MESSAGES = {
         "system_badge": "системное",
         "title": "HomeCage Admin",
         "allowed_apps": "Разрешенные приложения",
+        "request_location": "Запросить локацию",
     },
     "es": {
         "app_list_empty": "El teléfono aún no envió la lista de apps. Abre HomeCage y ejecuta la sincronización.",
@@ -89,6 +106,13 @@ MESSAGES = {
         "extra_packages_help": "Paquetes que no aparecen en el último informe del teléfono",
         "language": "Idioma",
         "last_phone_report": "Informe del teléfono",
+        "latest_location": "Última ubicación",
+        "location_not_reported": "sin reporte",
+        "location_request": "Solicitud de ubicación",
+        "location_status": "Estado de ubicación: {status}",
+        "lockdown_enabled": "Activar modo perdido",
+        "lockdown_help": "Cuando el modo perdido está activo, el teléfono bloquea apps, llamadas rápidas, launchers, instaladores y ajustes hasta que el servidor lo desactive.",
+        "lockdown_section": "Modo perdido",
         "no_data": "sin datos",
         "pin_label": "Nuevo PIN, 4-12 dígitos. Déjalo vacío para no cambiarlo. Estado actual: {pin_status}.",
         "pin_invalid": "El PIN debe contener 4-12 dígitos",
@@ -99,6 +123,7 @@ MESSAGES = {
         "system_badge": "sistema",
         "title": "HomeCage Admin",
         "allowed_apps": "Apps permitidas",
+        "request_location": "Solicitar ubicación",
     },
     "zh-CN": {
         "app_list_empty": "手机尚未上报应用列表。请打开 HomeCage 并执行同步。",
@@ -111,6 +136,13 @@ MESSAGES = {
         "extra_packages_help": "上次手机报告中缺失的包名",
         "language": "语言",
         "last_phone_report": "手机报告",
+        "latest_location": "最新位置",
+        "location_not_reported": "未上报",
+        "location_request": "位置请求",
+        "location_status": "位置状态：{status}",
+        "lockdown_enabled": "启用丢失模式",
+        "lockdown_help": "启用丢失模式后，手机会阻止应用、快速拨号、启动器、安装器和设置，直到服务器关闭该模式。",
+        "lockdown_section": "丢失模式",
         "no_data": "无数据",
         "pin_label": "新 PIN，4-12 位数字。留空则不更改。当前状态：{pin_status}。",
         "pin_invalid": "PIN 必须包含 4-12 位数字",
@@ -121,6 +153,7 @@ MESSAGES = {
         "system_badge": "系统",
         "title": "HomeCage Admin",
         "allowed_apps": "允许的应用",
+        "request_location": "请求位置",
     },
     "ja": {
         "app_list_empty": "電話からアプリ一覧がまだ送信されていません。HomeCage を開いて同期してください。",
@@ -133,6 +166,13 @@ MESSAGES = {
         "extra_packages_help": "最後の電話レポートにないパッケージ",
         "language": "言語",
         "last_phone_report": "電話レポート",
+        "latest_location": "最新の位置情報",
+        "location_not_reported": "未報告",
+        "location_request": "位置情報リクエスト",
+        "location_status": "位置情報ステータス: {status}",
+        "lockdown_enabled": "紛失モードを有効化",
+        "lockdown_help": "紛失モードが有効な間、サーバーが解除するまでアプリ、クイック通話、ランチャー、インストーラー、設定をブロックします。",
+        "lockdown_section": "紛失モード",
         "no_data": "データなし",
         "pin_label": "新しい PIN、4-12 桁。変更しない場合は空のままにします。現在: {pin_status}。",
         "pin_invalid": "PIN は 4-12 桁の数字で入力してください",
@@ -143,6 +183,7 @@ MESSAGES = {
         "system_badge": "システム",
         "title": "HomeCage Admin",
         "allowed_apps": "許可されたアプリ",
+        "request_location": "位置情報をリクエスト",
     },
 }
 
@@ -151,6 +192,8 @@ MESSAGES = {
 class Config:
     allowed_packages: list[str]
     pin: str | None
+    lockdown_enabled: bool
+    location_request_id: int
     updated_at: str
 
 
@@ -206,16 +249,40 @@ def ensure_data_dir() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def normalize_packages(packages: list[str]) -> list[str]:
+def normalize_packages(packages: Any) -> list[str]:
+    if isinstance(packages, str):
+        source_packages = split_packages(packages)
+    elif isinstance(packages, (list, tuple, set)):
+        source_packages = packages
+    else:
+        source_packages = []
+
     cleaned = []
     seen = set()
-    for package in packages:
-        package = package.strip()
+    for package in source_packages:
+        package = str(package).strip()
         if not package or package in seen:
             continue
         seen.add(package)
         cleaned.append(package)
     return sorted(cleaned)
+
+
+def parse_bool(value: Any, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
+def parse_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
@@ -244,20 +311,31 @@ def read_config() -> Config:
         {
             "allowedPackages": [],
             "pin": None,
+            "lockdownEnabled": False,
+            "locationRequestId": 0,
             "updatedAt": utc_now(),
         },
     )
     return Config(
         allowed_packages=normalize_packages(data.get("allowedPackages", [])),
         pin=data.get("pin") or None,
+        lockdown_enabled=parse_bool(data.get("lockdownEnabled")),
+        location_request_id=max(0, parse_int(data.get("locationRequestId"))),
         updated_at=data.get("updatedAt") or utc_now(),
     )
 
 
-def write_config(allowed_packages: list[str], pin: str | None) -> Config:
+def write_config(
+    allowed_packages: list[str],
+    pin: str | None,
+    lockdown_enabled: bool,
+    location_request_id: int,
+) -> Config:
     config = Config(
         allowed_packages=normalize_packages(allowed_packages),
         pin=pin,
+        lockdown_enabled=lockdown_enabled,
+        location_request_id=max(0, int(location_request_id)),
         updated_at=utc_now(),
     )
     write_json(
@@ -265,6 +343,8 @@ def write_config(allowed_packages: list[str], pin: str | None) -> Config:
         {
             "allowedPackages": config.allowed_packages,
             "pin": config.pin,
+            "lockdownEnabled": config.lockdown_enabled,
+            "locationRequestId": config.location_request_id,
             "updatedAt": config.updated_at,
         },
     )
@@ -275,8 +355,66 @@ def config_to_api(config: Config) -> dict[str, Any]:
     return {
         "allowedPackages": config.allowed_packages,
         "pin": config.pin,
+        "lockdownEnabled": config.lockdown_enabled,
+        "locationRequestId": config.location_request_id,
         "updatedAt": config.updated_at,
     }
+
+
+def home_assistant_state_payload(
+    config: Config,
+    device_state: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "allowedPackages": config.allowed_packages,
+        "allowedPackagesText": "\n".join(config.allowed_packages),
+        "allowedPackagesCount": len(config.allowed_packages),
+        "pinSet": config.pin is not None,
+        "lockdownEnabled": config.lockdown_enabled,
+        "locationRequestId": config.location_request_id,
+        "configUpdatedAt": config.updated_at,
+        "deviceId": device_state.get("deviceId"),
+        "deviceReportedAt": device_state.get("reportedAt"),
+        "localAllowedPackages": device_state.get("localAllowedPackages") or [],
+        "location": device_state.get("location"),
+    }
+
+
+def write_config_from_payload(payload: dict[str, Any], current_config: Config) -> Config:
+    allowed_packages = current_config.allowed_packages
+    if "allowedPackages" in payload:
+        raw_packages = payload.get("allowedPackages") or []
+        if isinstance(raw_packages, str):
+            allowed_packages = split_packages(raw_packages)
+        else:
+            allowed_packages = [str(package) for package in raw_packages]
+    elif "allowedPackagesText" in payload:
+        allowed_packages = split_packages(str(payload.get("allowedPackagesText") or ""))
+
+    pin = current_config.pin
+    if parse_bool(payload.get("clearPin")):
+        pin = None
+    elif "pin" in payload:
+        raw_pin = payload.get("pin")
+        pin = str(raw_pin).strip() if raw_pin is not None else None
+        if pin == "":
+            pin = current_config.pin
+    if pin is not None and (not pin.isdigit() or len(pin) not in range(4, 13)):
+        raise ValueError("PIN must contain 4-12 digits")
+
+    location_request_id = current_config.location_request_id
+    if parse_bool(payload.get("requestLocation")):
+        location_request_id += 1
+
+    return write_config(
+        allowed_packages=allowed_packages,
+        pin=pin,
+        lockdown_enabled=parse_bool(
+            payload.get("lockdownEnabled"),
+            default=current_config.lockdown_enabled,
+        ),
+        location_request_id=location_request_id,
+    )
 
 
 def unauthorized() -> Response:
@@ -338,8 +476,62 @@ def read_device_state() -> dict[str, Any]:
             "reportedAt": None,
             "installedApps": [],
             "localAllowedPackages": [],
+            "lockdownEnabled": False,
+            "location": None,
         },
     )
+
+
+def location_summary(device_state: dict[str, Any], language: str) -> str:
+    location = device_state.get("location")
+    if not isinstance(location, dict):
+        return message(language, "location_not_reported")
+
+    status = str(location.get("status") or "unknown")
+    latitude = location.get("latitude")
+    longitude = location.get("longitude")
+    if status == "ok" and latitude is not None and longitude is not None:
+        accuracy = location.get("accuracyMeters")
+        provider = location.get("provider") or "unknown"
+        captured_at = location.get("capturedAt") or message(language, "no_data")
+        map_url = f"https://maps.google.com/?q={quote(str(latitude))},{quote(str(longitude))}"
+        accuracy_text = f", +/- {accuracy} m" if accuracy is not None else ""
+        return (
+            f"<a href='{map_url}' target='_blank' rel='noreferrer'>"
+            f"{html.escape(str(latitude))}, {html.escape(str(longitude))}</a>"
+            f"{html.escape(accuracy_text)}<br>"
+            f"<small>{html.escape(provider)} · {html.escape(str(captured_at))}</small>"
+        )
+    return html.escape(message(language, "location_status", status=status))
+
+
+def normalize_location_payload(raw_location: Any) -> dict[str, Any] | None:
+    if not isinstance(raw_location, dict):
+        return None
+
+    location: dict[str, Any] = {
+        "requestId": max(0, parse_int(raw_location.get("requestId"))),
+        "status": str(raw_location.get("status") or "unknown"),
+        "reportedAt": utc_now(),
+    }
+    for key in ("latitude", "longitude", "accuracyMeters"):
+        value = raw_location.get(key)
+        if value is not None:
+            try:
+                location[key] = float(value)
+            except (TypeError, ValueError):
+                pass
+    provider = raw_location.get("provider")
+    if provider:
+        location["provider"] = str(provider)
+    captured_at_millis = raw_location.get("capturedAtMillis")
+    if captured_at_millis:
+        captured_at = datetime.fromtimestamp(
+            parse_int(captured_at_millis) / 1000,
+            tz=timezone.utc,
+        )
+        location["capturedAt"] = captured_at.isoformat()
+    return location
 
 
 def render_admin_page(config: Config, device_state: dict[str, Any], language: str) -> str:
@@ -378,6 +570,8 @@ def render_admin_page(config: Config, device_state: dict[str, Any], language: st
     auth_note = message(language, "auth_enabled") if ADMIN_TOKEN else message(language, "auth_disabled")
     reported_at = html.escape(str(device_state.get("reportedAt") or message(language, "no_data")))
     updated_at = html.escape(config.updated_at)
+    lockdown_checked = "checked" if config.lockdown_enabled else ""
+    location_html = location_summary(device_state, language)
     page_title = html.escape(message(language, "title"))
     language_links = " ".join(
         (
@@ -552,6 +746,19 @@ def render_admin_page(config: Config, device_state: dict[str, Any], language: st
         </label>
       </section>
       <section class="panel">
+        <h2>{html.escape(message(language, "lockdown_section"))}</h2>
+        <label>
+          <input type="checkbox" name="lockdownEnabled" value="1" {lockdown_checked}>
+          {html.escape(message(language, "lockdown_enabled"))}
+        </label>
+        <p class="muted">{html.escape(message(language, "lockdown_help"))}</p>
+      </section>
+      <section class="panel">
+        <h2>{html.escape(message(language, "location_request"))}</h2>
+        <p class="muted"><strong>{html.escape(message(language, "latest_location"))}:</strong><br>{location_html}</p>
+        <button type="submit" name="action" value="requestLocation">{html.escape(message(language, "request_location"))}</button>
+      </section>
+      <section class="panel">
         <h2>{html.escape(message(language, "pin_section"))}</h2>
         <label class="field">
           {pin_label}
@@ -561,7 +768,7 @@ def render_admin_page(config: Config, device_state: dict[str, Any], language: st
           <input type="checkbox" name="clearPin" value="1">
           {html.escape(message(language, "clear_remote_pin"))}
         </label>
-        <button type="submit">{html.escape(message(language, "save_config"))}</button>
+        <button type="submit" name="action" value="save">{html.escape(message(language, "save_config"))}</button>
       </section>
     </form>
   </main>
@@ -590,6 +797,11 @@ async def update_config(request: Request) -> Redirect | Response:
     selected_packages = get_form_list(form, "package")
     manual_packages = split_packages(str(form.get("manualPackages") or ""))
     current_config = read_config()
+    action = str(form.get("action") or "save")
+    lockdown_enabled = form.get("lockdownEnabled") == "1"
+    location_request_id = current_config.location_request_id
+    if action == "requestLocation":
+        location_request_id += 1
     pin = str(form.get("pin") or "").strip() or current_config.pin
     if form.get("clearPin") == "1":
         pin = None
@@ -600,7 +812,13 @@ async def update_config(request: Request) -> Redirect | Response:
             media_type="text/plain",
         )
 
-    write_config(selected_packages + manual_packages, pin)
+    config = write_config(
+        selected_packages + manual_packages,
+        pin,
+        lockdown_enabled,
+        location_request_id,
+    )
+    publish_home_assistant_state(config, read_device_state())
     return Redirect(path=f"/?lang={quote(language)}")
 
 
@@ -614,7 +832,46 @@ async def api_config(request: Request) -> Response:
     )
 
 
-@post("/api/device-state")
+@get("/api/home-assistant/state")
+async def api_home_assistant_state(request: Request) -> Response:
+    if not is_authorized(request):
+        return unauthorized()
+    return Response(
+        content=json.dumps(
+            home_assistant_state_payload(read_config(), read_device_state()),
+            ensure_ascii=False,
+        ),
+        media_type="application/json",
+    )
+
+
+@post("/api/home-assistant/config", status_code=200)
+async def api_home_assistant_config(request: Request) -> Response:
+    if not is_authorized(request):
+        return unauthorized()
+
+    payload = await request.json()
+    try:
+        config = write_config_from_payload(payload, read_config())
+    except ValueError as error:
+        return Response(
+            content=str(error),
+            status_code=400,
+            media_type="text/plain",
+        )
+
+    device_state = read_device_state()
+    publish_home_assistant_state(config, device_state)
+    return Response(
+        content=json.dumps(
+            home_assistant_state_payload(config, device_state),
+            ensure_ascii=False,
+        ),
+        media_type="application/json",
+    )
+
+
+@post("/api/device-state", status_code=200)
 async def api_device_state(request: Request) -> Response:
     if not is_authorized(request):
         return unauthorized()
@@ -635,17 +892,188 @@ async def api_device_state(request: Request) -> Response:
         )
 
     normalized_apps.sort(key=lambda app: (app["label"].casefold(), app["packageName"]))
+    location = normalize_location_payload(payload.get("location"))
     state = {
         "deviceId": payload.get("deviceId"),
         "reportedAt": utc_now(),
         "installedApps": normalized_apps,
         "localAllowedPackages": normalize_packages(payload.get("localAllowedPackages") or []),
+        "lockdownEnabled": parse_bool(payload.get("lockdownEnabled")),
+        "location": location,
     }
     write_json(DEVICE_STATE_PATH, state)
+    publish_home_assistant_state(read_config(), state)
     return Response(content=json.dumps({"ok": True}), media_type="application/json")
 
 
-app = Litestar(route_handlers=[admin, update_config, api_config, api_device_state])
+def mqtt_env(name: str, default: str = "") -> str:
+    return os.getenv(f"HOMECAGE_HA_MQTT_{name}", default)
+
+
+def mqtt_topic_prefix() -> str:
+    return mqtt_env("TOPIC_PREFIX", "homecage").strip().strip("/") or "homecage"
+
+
+def mqtt_discovery_prefix() -> str:
+    return mqtt_env("DISCOVERY_PREFIX", "homeassistant").strip().strip("/") or "homeassistant"
+
+
+def publish_home_assistant_state(
+    config: Config | None = None,
+    device_state: dict[str, Any] | None = None,
+) -> None:
+    client = MQTT_CLIENT
+    if client is None:
+        return
+
+    payload = home_assistant_state_payload(
+        config or read_config(),
+        device_state or read_device_state(),
+    )
+    client.publish(
+        f"{mqtt_topic_prefix()}/state",
+        json.dumps(payload, ensure_ascii=False),
+        retain=True,
+    )
+
+
+def publish_home_assistant_discovery(client: Any) -> None:
+    state_topic = f"{mqtt_topic_prefix()}/state"
+    command_prefix = f"{mqtt_topic_prefix()}/command"
+    discovery_prefix = mqtt_discovery_prefix()
+    device = {
+        "identifiers": ["homecage_server"],
+        "name": "HomeCage",
+        "manufacturer": "HomeCage",
+        "model": "HomeCage Server",
+    }
+    configs = {
+        f"{discovery_prefix}/switch/homecage/lost_mode/config": {
+            "name": "Lost mode",
+            "unique_id": "homecage_lost_mode",
+            "state_topic": state_topic,
+            "command_topic": f"{command_prefix}/lockdown",
+            "value_template": "{{ value_json.lockdownEnabled }}",
+            "payload_on": "true",
+            "payload_off": "false",
+            "state_on": "true",
+            "state_off": "false",
+            "device": device,
+        },
+        f"{discovery_prefix}/button/homecage/request_location/config": {
+            "name": "Request location",
+            "unique_id": "homecage_request_location",
+            "command_topic": f"{command_prefix}/request_location",
+            "payload_press": "request",
+            "device": device,
+        },
+        f"{discovery_prefix}/sensor/homecage/allowed_apps/config": {
+            "name": "Allowed apps",
+            "unique_id": "homecage_allowed_apps",
+            "state_topic": state_topic,
+            "value_template": "{{ value_json.allowedPackagesCount }}",
+            "json_attributes_topic": state_topic,
+            "device": device,
+        },
+        f"{discovery_prefix}/sensor/homecage/location_status/config": {
+            "name": "Location status",
+            "unique_id": "homecage_location_status",
+            "state_topic": state_topic,
+            "value_template": "{{ value_json.location.status if value_json.location else 'unknown' }}",
+            "json_attributes_topic": state_topic,
+            "device": device,
+        },
+        f"{discovery_prefix}/sensor/homecage/last_seen/config": {
+            "name": "Last phone report",
+            "unique_id": "homecage_last_seen",
+            "state_topic": state_topic,
+            "value_template": "{{ value_json.deviceReportedAt }}",
+            "device_class": "timestamp",
+            "device": device,
+        },
+    }
+    for topic, payload in configs.items():
+        client.publish(topic, json.dumps(payload), retain=True)
+
+
+def handle_home_assistant_command(topic: str, payload: str) -> None:
+    command_prefix = f"{mqtt_topic_prefix()}/command"
+    current_config = read_config()
+    if topic == f"{command_prefix}/lockdown":
+        config = write_config_from_payload(
+            {"lockdownEnabled": payload.strip().lower() in {"1", "true", "on"}},
+            current_config,
+        )
+    elif topic == f"{command_prefix}/request_location":
+        config = write_config_from_payload({"requestLocation": True}, current_config)
+    elif topic == f"{command_prefix}/allowed_packages":
+        config = write_config_from_payload({"allowedPackagesText": payload}, current_config)
+    else:
+        return
+    publish_home_assistant_state(config, read_device_state())
+
+
+def start_home_assistant_mqtt() -> None:
+    global MQTT_CLIENT
+    host = mqtt_env("HOST")
+    if not host:
+        return
+
+    try:
+        import paho.mqtt.client as mqtt
+    except ImportError:
+        return
+
+    def on_connect(client: Any, _userdata: Any, _flags: Any, _reason_code: Any, _properties: Any = None) -> None:
+        command_prefix = f"{mqtt_topic_prefix()}/command"
+        client.subscribe(f"{command_prefix}/lockdown")
+        client.subscribe(f"{command_prefix}/request_location")
+        client.subscribe(f"{command_prefix}/allowed_packages")
+        publish_home_assistant_discovery(client)
+        publish_home_assistant_state()
+
+    def on_message(_client: Any, _userdata: Any, message: Any) -> None:
+        payload = message.payload.decode("utf-8", errors="replace")
+        handle_home_assistant_command(message.topic, payload)
+
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=mqtt_env("CLIENT_ID", "homecage-server"))
+    username = mqtt_env("USERNAME")
+    password = mqtt_env("PASSWORD")
+    if username:
+        client.username_pw_set(username, password or None)
+    client.on_connect = on_connect
+    client.on_message = on_message
+
+    try:
+        client.connect(host, int(mqtt_env("PORT", "1883")), keepalive=60)
+    except OSError:
+        return
+    MQTT_CLIENT = client
+    client.loop_start()
+
+
+def stop_home_assistant_mqtt() -> None:
+    global MQTT_CLIENT
+    client = MQTT_CLIENT
+    MQTT_CLIENT = None
+    if client is None:
+        return
+    client.loop_stop()
+    client.disconnect()
+
+
+app = Litestar(
+    route_handlers=[
+        admin,
+        update_config,
+        api_config,
+        api_home_assistant_state,
+        api_home_assistant_config,
+        api_device_state,
+    ],
+    on_startup=[start_home_assistant_mqtt],
+    on_shutdown=[stop_home_assistant_mqtt],
+)
 
 
 def run() -> None:

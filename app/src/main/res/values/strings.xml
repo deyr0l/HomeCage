@@ -30,6 +30,8 @@
     <string name="home_quick_contacts_many">%1$d quick contacts</string>
     <string name="home_no_quick_contacts">No quick contacts configured</string>
     <string name="home_no_allowed_apps">No allowed apps yet</string>
+    <string name="home_lockdown_title">Device locked</string>
+    <string name="home_lockdown_message">Remote lost mode is active. Apps, calls, and settings are blocked until the server disables it.</string>
     <string name="home_emergency_contact">Emergency contact</string>
     <string name="home_allowed_app_label">Allowed app</string>
     <string name="home_admin_content_description">Open Admin</string>
@@ -52,6 +54,8 @@
 
     <string name="toast_call_permission_enabled">Call permission enabled</string>
     <string name="toast_call_permission_missing">Without call permission, quick call will not work</string>
+    <string name="toast_location_permission_enabled">Location permission enabled</string>
+    <string name="toast_location_permission_missing">Without location permission, server location requests will report permission denied</string>
     <string name="toast_allowed_list_saved">List saved</string>
     <string name="toast_kiosk_paused">Kiosk stopped until you return to the app</string>
     <string name="toast_protection_disabled">Protection disabled. You can remove the app.</string>
@@ -59,6 +63,7 @@
     <string name="toast_launch_blocked">Launch blocked by Android</string>
     <string name="toast_quick_calls_need_permission">Quick calls require call permission in Admin</string>
     <string name="toast_call_failed">Could not start call</string>
+    <string name="toast_lockdown_active">Remote lost mode is active</string>
     <string name="toast_server_saved">Server settings saved</string>
     <string name="toast_quick_calls_saved">Quick calls saved</string>
     <string name="toast_language_saved">Language saved</string>
@@ -85,12 +90,13 @@
     <string name="status_not_allowed">not allowed</string>
     <string name="status_calls_allowed">allowed</string>
     <string name="status_calls_not_allowed">not allowed</string>
-    <string name="fallback_status">Device Admin: %1$s\nAccessibility protection: %2$s\nCalls: %3$s</string>
+    <string name="fallback_status">Device Admin: %1$s\nAccessibility protection: %2$s\nCalls: %3$s\nLocation: %4$s</string>
     <string name="button_enable_device_admin">Enable Device Admin</string>
     <string name="button_open_accessibility">Open Accessibility</string>
     <string name="button_open_accessibility_service">Open HomeCage Accessibility</string>
     <string name="button_open_restricted_settings">Open restricted settings</string>
     <string name="button_allow_calls">Allow calls</string>
+    <string name="button_allow_location">Allow location</string>
     <string name="restricted_settings_help">If Android says access was denied, open restricted settings, tap the three-dot menu on the HomeCage app page, choose Allow restricted settings, then return here and open Accessibility again.</string>
     <string name="toast_open_settings_failed">Could not open Android settings</string>
 

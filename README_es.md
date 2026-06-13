@@ -62,11 +62,12 @@ Device Owner normalmente requiere un dispositivo limpio antes de añadir cuentas
 | `ACCESS_NETWORK_STATE` | Programar sync solo cuando hay red disponible. |
 | `RECEIVE_BOOT_COMPLETED` | Reprogramar sync después de reiniciar. |
 | `CALL_PHONE` | Botones de llamada rápida. La app no lee contactos. |
+| `ACCESS_COARSE_LOCATION` / `ACCESS_FINE_LOCATION` | Reporte opcional de ubicación cuando el servidor lo solicita. |
 | Device Admin / Device Owner | Evita que el niño quite la protección sin PIN y permite Lock Task. |
 | Accessibility service | Protección alternativa: detecta el paquete en primer plano y vuelve a HomeCage si la pantalla no está permitida. |
 | Visibilidad de apps launcher | Lista apps instaladas en la admin. No es `QUERY_ALL_PACKAGES`. |
 
-No se usa: Usage Access (`PACKAGE_USAGE_STATS`), draw-over-other-apps (`SYSTEM_ALERT_WINDOW`), contactos, SMS, ubicación, cámara, micrófono, notification listener, VPN ni `QUERY_ALL_PACKAGES`.
+No se usa: Usage Access (`PACKAGE_USAGE_STATS`), draw-over-other-apps (`SYSTEM_ALERT_WINDOW`), contactos, SMS, cámara, micrófono, notification listener, VPN ni `QUERY_ALL_PACKAGES`.
 
 ## Accessibility y restricted settings
 
@@ -77,6 +78,35 @@ En Android 13+ un APK instalado fuera de Play puede necesitar:
 3. Menú de tres puntos.
 4. `Allow restricted settings`.
 5. Volver a HomeCage Admin y activar Accessibility.
+
+## Servidor remoto
+
+La app funciona sin servidor y conserva la configuración local. Si el servidor está configurado y disponible, su configuración sobrescribe la lista local de apps permitidas.
+
+El servidor puede activar el modo perdido y solicitar la ubicación del dispositivo. En modo perdido se bloquean apps permitidas, llamadas rápidas, launchers, instaladores y ajustes hasta que el servidor lo desactive.
+
+La sincronización se programa aproximadamente cada 10 minutos cuando hay red. Abrir o volver al launcher HomeCage también fuerza un intento de sincronización. Si no hay red, la app mantiene la última configuración local.
+
+## Home Assistant
+
+HomeCage Server expone REST endpoints:
+
+```text
+GET  /api/home-assistant/state
+POST /api/home-assistant/config
+```
+
+Ejemplo:
+
+```json
+{
+  "lockdownEnabled": true,
+  "requestLocation": true,
+  "allowedPackagesText": "com.android.dialer\norg.example.app"
+}
+```
+
+Si se define `HOMECAGE_HA_MQTT_HOST`, el servidor publica MQTT Discovery: un switch de modo perdido, un botón para solicitar ubicación y sensores para apps permitidas, estado de ubicación y último reporte del teléfono.
 
 ## Desinstalación
 

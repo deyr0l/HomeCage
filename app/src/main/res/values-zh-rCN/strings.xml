@@ -30,6 +30,8 @@
     <string name="home_quick_contacts_many">%1$d 个快速联系人</string>
     <string name="home_no_quick_contacts">未配置快速联系人</string>
     <string name="home_no_allowed_apps">尚未添加允许的应用</string>
+    <string name="home_lockdown_title">设备已锁定</string>
+    <string name="home_lockdown_message">远程丢失模式已启用。应用、通话和设置将被阻止，直到服务器关闭该模式。</string>
     <string name="home_emergency_contact">紧急联系人</string>
     <string name="home_allowed_app_label">允许的应用</string>
     <string name="home_admin_content_description">打开管理</string>
@@ -52,6 +54,8 @@
 
     <string name="toast_call_permission_enabled">通话权限已启用</string>
     <string name="toast_call_permission_missing">没有通话权限，快速拨号无法使用</string>
+    <string name="toast_location_permission_enabled">位置权限已启用</string>
+    <string name="toast_location_permission_missing">没有位置权限，服务器位置请求会报告权限被拒绝</string>
     <string name="toast_allowed_list_saved">列表已保存</string>
     <string name="toast_kiosk_paused">Kiosk 已暂停，直到返回应用</string>
     <string name="toast_protection_disabled">保护已停用。现在可以卸载应用。</string>
@@ -59,6 +63,7 @@
     <string name="toast_launch_blocked">Android 已阻止启动</string>
     <string name="toast_quick_calls_need_permission">快速拨号需要在管理中启用通话权限</string>
     <string name="toast_call_failed">无法开始通话</string>
+    <string name="toast_lockdown_active">远程丢失模式已启用</string>
     <string name="toast_server_saved">服务器设置已保存</string>
     <string name="toast_quick_calls_saved">快速拨号已保存</string>
     <string name="toast_language_saved">语言已保存</string>
@@ -85,12 +90,13 @@
     <string name="status_not_allowed">未允许</string>
     <string name="status_calls_allowed">已允许</string>
     <string name="status_calls_not_allowed">未允许</string>
-    <string name="fallback_status">Device Admin：%1$s\nAccessibility 保护：%2$s\n通话：%3$s</string>
+    <string name="fallback_status">Device Admin：%1$s\nAccessibility 保护：%2$s\n通话：%3$s\n位置：%4$s</string>
     <string name="button_enable_device_admin">启用 Device Admin</string>
     <string name="button_open_accessibility">打开 Accessibility</string>
     <string name="button_open_accessibility_service">打开 HomeCage Accessibility</string>
     <string name="button_open_restricted_settings">打开受限设置</string>
     <string name="button_allow_calls">允许通话</string>
+    <string name="button_allow_location">允许位置</string>
     <string name="restricted_settings_help">如果 Android 提示访问被拒绝，请打开受限设置，在 HomeCage 应用页面点三点菜单，选择 Allow restricted settings，然后返回这里再次打开 Accessibility。</string>
     <string name="toast_open_settings_failed">无法打开 Android 设置</string>
 

@@ -99,6 +99,24 @@ class KioskPreferences(private val context: Context) {
     fun getLastSyncMessage(): String =
         preferences.getString(KEY_LAST_SYNC_MESSAGE, context.getString(R.string.sync_never)).orEmpty()
 
+    fun isLockdownEnabled(): Boolean =
+        preferences.getBoolean(KEY_LOCKDOWN_ENABLED, false)
+
+    fun setLockdownEnabled(enabled: Boolean) {
+        preferences.edit()
+            .putBoolean(KEY_LOCKDOWN_ENABLED, enabled)
+            .apply()
+    }
+
+    fun getHandledLocationRequestId(): Long =
+        preferences.getLong(KEY_HANDLED_LOCATION_REQUEST_ID, 0L)
+
+    fun setHandledLocationRequestId(requestId: Long) {
+        preferences.edit()
+            .putLong(KEY_HANDLED_LOCATION_REQUEST_ID, requestId)
+            .apply()
+    }
+
     fun markSyncAttempt(atMillis: Long) {
         preferences.edit()
             .putLong(KEY_LAST_SYNC_ATTEMPT_AT, atMillis)
@@ -191,6 +209,8 @@ class KioskPreferences(private val context: Context) {
         const val KEY_LAST_SYNC_SUCCESS_AT = "last_sync_success_at"
         const val KEY_LAST_SYNC_MESSAGE = "last_sync_message"
         const val KEY_ADMIN_SESSION_UNTIL = "admin_session_until"
+        const val KEY_LOCKDOWN_ENABLED = "lockdown_enabled"
+        const val KEY_HANDLED_LOCATION_REQUEST_ID = "handled_location_request_id"
         const val DEFAULT_SERVER_URL = ""
         const val ADMIN_SESSION_DURATION_MS = 5 * 60 * 1000L
         const val PIN_HASH_ITERATIONS = 80_000
