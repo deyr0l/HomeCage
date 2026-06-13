@@ -100,10 +100,13 @@ Device Owner обычно назначается только на чистом 
 
 Автоустановка сервера как Linux service:
 
-```bash
+```sh
+# Запускать от root из папки server.
 cd server
-sudo ./install-service.sh
+./install-service.sh
 ```
+
+На Alpine/OpenRC сначала поставьте зависимости: `apk add python3 py3-pip py3-virtualenv openrc`. Скрипт сам создает service user/group `homecage`, ищет свободный порт и включает сервис в автозагрузку.
 
 Сервер поддерживает несколько телефонов. Каждый телефон определяется по Android `ANDROID_ID` и имени устройства из HomeCage Admin -> Remote management. В веб-админке можно выбрать, какой телефон редактировать.
 

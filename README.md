@@ -161,12 +161,13 @@ homecage-server
 
 Automated Linux service install:
 
-```bash
+```sh
+# Run as root from the server directory.
 cd server
-sudo ./install-service.sh
+./install-service.sh
 ```
 
-The installer detects systemd or OpenRC, finds a free port, creates `/opt/homecage-server`, writes the environment file, and enables the service on boot.
+On Alpine/OpenRC, install prerequisites first: `apk add python3 py3-pip py3-virtualenv openrc`. The installer detects systemd or OpenRC, creates the `homecage` service user/group, finds a free port, creates `/opt/homecage-server`, writes the environment file, and enables the service on boot.
 
 Open the web admin:
 

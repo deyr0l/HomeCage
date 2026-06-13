@@ -1,17 +1,19 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 SERVICE_NAME="${SERVICE_NAME:-homecage-server}"
 INSTALL_DIR="${INSTALL_DIR:-/opt/homecage-server}"
 SERVICE_USER="${SERVICE_USER:-homecage}"
+SERVICE_GROUP="${SERVICE_GROUP:-$SERVICE_USER}"
 HOST="${HOMECAGE_HOST:-0.0.0.0}"
 START_PORT="${HOMECAGE_PORT:-8000}"
 DATA_DIR="${HOMECAGE_DATA_DIR:-$INSTALL_DIR/data}"
-SOURCE_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+SOURCE_DIR="$(CDPATH= cd "$(dirname "$0")" && pwd)"
+CHOWN_TARGET="$SERVICE_USER:$SERVICE_GROUP"
 
 need_root() {
   if [ "$(id -u)" -ne 0 ]; then
-    echo "Run as root: sudo $0" >&2
+    echo "Run as root. Example: su -; cd $SOURCE_DIR; ./install-service.sh" >&2
     exit 1
   fi
 }
@@ -29,7 +31,7 @@ detect_os() {
 print_package_hint() {
   os_id="$1"
   case "$os_id" in
-    alpine) echo "Install prerequisites with: apk add python3 py3-pip shadow" ;;
+    alpine) echo "Install prerequisites with: apk add python3 py3-pip py3-virtualenv openrc" ;;
     debian|ubuntu) echo "Install prerequisites with: apt-get update && apt-get install -y python3 python3-venv python3-pip" ;;
     fedora) echo "Install prerequisites with: dnf install -y python3 python3-pip" ;;
     arch) echo "Install prerequisites with: pacman -S --needed python python-pip" ;;
@@ -91,16 +93,74 @@ PY
   fi
 }
 
-ensure_user() {
-  if id "$SERVICE_USER" >/dev/null 2>&1; then
-    return
+group_exists() {
+  if command -v getent >/dev/null 2>&1; then
+    getent group "$SERVICE_GROUP" >/dev/null 2>&1
+    return $?
   fi
+  [ -r /etc/group ] && grep -q "^$SERVICE_GROUP:" /etc/group
+}
+
+user_exists() {
+  id -u "$SERVICE_USER" >/dev/null 2>&1
+}
+
+create_group() {
+  if command -v addgroup >/dev/null 2>&1; then
+    addgroup -S "$SERVICE_GROUP" 2>/dev/null && return 0
+    addgroup --system "$SERVICE_GROUP" 2>/dev/null && return 0
+    addgroup "$SERVICE_GROUP" 2>/dev/null && return 0
+  fi
+
+  if command -v groupadd >/dev/null 2>&1; then
+    groupadd --system "$SERVICE_GROUP" 2>/dev/null && return 0
+    groupadd "$SERVICE_GROUP" 2>/dev/null && return 0
+  fi
+
+  return 1
+}
+
+create_user() {
+  nologin_shell="/sbin/nologin"
+  [ -x /usr/sbin/nologin ] && nologin_shell="/usr/sbin/nologin"
+  [ -x /bin/false ] && nologin_shell="/bin/false"
+
   if command -v adduser >/dev/null 2>&1; then
-    adduser -S -D -H -s /sbin/nologin "$SERVICE_USER" 2>/dev/null || \
-      adduser --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
-  else
-    useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
+    adduser -S -D -H -s "$nologin_shell" -G "$SERVICE_GROUP" "$SERVICE_USER" 2>/dev/null && return 0
+    adduser --system --no-create-home --shell "$nologin_shell" --ingroup "$SERVICE_GROUP" "$SERVICE_USER" 2>/dev/null && return 0
   fi
+
+  if command -v useradd >/dev/null 2>&1; then
+    useradd --system --no-create-home --shell "$nologin_shell" --gid "$SERVICE_GROUP" "$SERVICE_USER" 2>/dev/null && return 0
+    useradd -r -M -s "$nologin_shell" -g "$SERVICE_GROUP" "$SERVICE_USER" 2>/dev/null && return 0
+  fi
+
+  return 1
+}
+
+ensure_user() {
+  if ! group_exists; then
+    if ! create_group; then
+      echo "Could not create group '$SERVICE_GROUP'. Install adduser/addgroup or set SERVICE_USER=root SERVICE_GROUP=root." >&2
+      exit 1
+    fi
+  fi
+
+  if ! user_exists; then
+    if ! create_user; then
+      echo "Could not create user '$SERVICE_USER'. Install adduser/useradd or set SERVICE_USER=root SERVICE_GROUP=root." >&2
+      exit 1
+    fi
+  fi
+
+  chown_check_dir="${TMPDIR:-/tmp}/$SERVICE_NAME-chown-check-$$"
+  mkdir -p "$chown_check_dir"
+  if ! chown "$CHOWN_TARGET" "$chown_check_dir" 2>/dev/null; then
+    rm -rf "$chown_check_dir"
+    echo "User/group '$CHOWN_TARGET' is not valid for chown." >&2
+    exit 1
+  fi
+  rm -rf "$chown_check_dir"
 }
 
 install_files() {
@@ -111,21 +171,21 @@ install_files() {
     cp "$SOURCE_DIR/pyproject.toml" "$INSTALL_DIR/pyproject.toml"
     cp "$SOURCE_DIR/README.md" "$INSTALL_DIR/README.md"
   fi
-  chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
+  chown -R "$CHOWN_TARGET" "$INSTALL_DIR"
 }
 
 install_python_env() {
   python3 -m venv "$INSTALL_DIR/.venv"
   "$INSTALL_DIR/.venv/bin/python" -m pip install --upgrade pip
   "$INSTALL_DIR/.venv/bin/pip" install -e "$INSTALL_DIR"
-  chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR/.venv"
+  chown -R "$CHOWN_TARGET" "$INSTALL_DIR/.venv"
 }
 
 write_env_file() {
   token="$1"
   port="$2"
   mkdir -p "$DATA_DIR"
-  chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
+  chown -R "$CHOWN_TARGET" "$DATA_DIR"
   cat > /etc/"$SERVICE_NAME".env <<EOF
 HOMECAGE_ADMIN_TOKEN=$token
 HOMECAGE_HOST=$HOST
@@ -145,7 +205,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=$SERVICE_USER
-Group=$SERVICE_USER
+Group=$SERVICE_GROUP
 WorkingDirectory=$INSTALL_DIR
 EnvironmentFile=/etc/$SERVICE_NAME.env
 ExecStart=$INSTALL_DIR/.venv/bin/homecage-server
@@ -169,7 +229,7 @@ description="HomeCage local admin server"
 supervisor="supervise-daemon"
 
 command="$INSTALL_DIR/.venv/bin/homecage-server"
-command_user="$SERVICE_USER:$SERVICE_USER"
+command_user="$SERVICE_USER:$SERVICE_GROUP"
 directory="$INSTALL_DIR"
 output_log="/var/log/$SERVICE_NAME.log"
 error_log="/var/log/$SERVICE_NAME.err"
@@ -181,9 +241,9 @@ depend() {
 }
 
 start_pre() {
-    checkpath -f -m 0644 -o "$SERVICE_USER:$SERVICE_USER" "/var/log/$SERVICE_NAME.log"
-    checkpath -f -m 0644 -o "$SERVICE_USER:$SERVICE_USER" "/var/log/$SERVICE_NAME.err"
-    checkpath -d -m 0750 -o "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
+    checkpath -f -m 0644 -o "$SERVICE_USER:$SERVICE_GROUP" "/var/log/$SERVICE_NAME.log"
+    checkpath -f -m 0644 -o "$SERVICE_USER:$SERVICE_GROUP" "/var/log/$SERVICE_NAME.err"
+    checkpath -d -m 0750 -o "$SERVICE_USER:$SERVICE_GROUP" "$DATA_DIR"
 }
 EOF
   chmod +x /etc/init.d/"$SERVICE_NAME"

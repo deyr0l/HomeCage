@@ -89,10 +89,13 @@ Android 13+ 上，侧载 APK 可能需要手动允许受限设置：
 
 将服务器自动安装为 Linux service：
 
-```bash
+```sh
+# 请在 server 目录中以 root 身份运行。
 cd server
-sudo ./install-service.sh
+./install-service.sh
 ```
+
+在 Alpine/OpenRC 上，请先安装依赖：`apk add python3 py3-pip py3-virtualenv openrc`。脚本会创建 `homecage` 服务用户/组，查找空闲端口，并启用开机自启动。
 
 服务器支持多台手机。每台手机通过 Android `ANDROID_ID` 和 HomeCage Admin -> Remote management 中设置的设备名称识别。网页管理界面可以选择要编辑的手机。
 

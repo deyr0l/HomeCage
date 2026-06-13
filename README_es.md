@@ -89,10 +89,13 @@ La sincronización se programa aproximadamente cada 10 minutos cuando hay red. A
 
 Instalación automática del servidor como servicio Linux:
 
-```bash
+```sh
+# Ejecutar como root desde la carpeta server.
 cd server
-sudo ./install-service.sh
+./install-service.sh
 ```
+
+En Alpine/OpenRC, instala primero las dependencias: `apk add python3 py3-pip py3-virtualenv openrc`. El script crea el usuario/grupo de servicio `homecage`, busca un puerto libre y activa el servicio al inicio.
 
 El servidor soporta varios teléfonos. Cada teléfono se identifica por Android `ANDROID_ID` y por el nombre configurado en HomeCage Admin -> Remote management. La admin web permite elegir qué teléfono editar.
 
