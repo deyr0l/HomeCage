@@ -9,10 +9,15 @@ Translations: [Русский](README_ru.md), [Español](README_es.md), [简体�
 ![Kotlin](https://img.shields.io/badge/Kotlin-Android-purple)
 
 ## Social restrictions!!!!!
-HomeCage is not spyware.
-HomeCage does not read messages, contacts, location, camera, microphone, or notifications.
-HomeCage is not designed for covert monitoring.
-HomeCage is a visible launcher restriction tool for parent-managed devices.
+- HomeCage is not spyware.
+- HomeCage does not read messages, contacts, location, camera, microphone, or notifications.
+- HomeCage is not designed for covert monitoring.
+- HomeCage is a visible launcher restriction tool for parent-managed devices.
+
+## Screenshots
+
+![Mainpage](https://sun9-8.userapi.com/s/v1/ig2/zU2RJN3tky2p0pF5EOtV70lFFi7Srfnor2Y2Kruci_8l_zdJa5phBg6sYhUzjIXdEi_8RTrNgL1MCHQJWZHVrzrv.jpg?quality=95&as=32x71,48x107,72x160,108x240,160x356,240x533,360x800,480x1067,540x1200,576x1280&from=bu&u=EoGoEDLcT_mLQOXXTQVxeZ9brqMDqBoh-qoxQAgYMMA&cs=576x0)
+![Adminpage](https://sun9-72.userapi.com/s/v1/ig2/7UKyNwxAU0NZyxR4HuyktddcrDHqh4inMMcJBgUTW7r8t3MqhBQtgaN_-WqUCw44DgCTqfjgbJGEFUL1q_vOcSxf.jpg?quality=95&as=32x71,48x107,72x160,108x240,160x356,240x533,360x800,480x1067,540x1200,576x1280&from=bu&cs=576x0)
 
 
 ## Tech info
