@@ -1,6 +1,14 @@
 <p align="center">
 
-  <img src="https://sun9-16.userapi.com/s/v1/ig2/6oMAy8inWJKIeIKT6NRFwlOtt4jKVIml2Cg5K0CJ4rFjaaFnqufiYxUyJ_HR6Vv6ki0Wl2twl14fLWfMm8csbocF.jpg?quality=95&as=32x32,48x48,72x72,108x108,160x160,240x240,360x360,480x480,512x512&from=bu&u=s0exv-erGy0CAPQpK3_1aOvipvYbhcoCHd9PwImPC20&cs=512x0)" width="128" alt="HomeCage logo">
+  <img
+
+    src="https://sun9-16.userapi.com/s/v1/ig2/6oMAy8inWJKIeIKT6NRFwlOtt4jKVIml2Cg5K0CJ4rFjaaFnqufiYxUyJ_HR6Vv6ki0Wl2twl14fLWfMm8csbocF.jpg?quality=95&amp;as=32x32,48x48,72x72,108x108,160x160,240x240,360x360,480x480,512x512&amp;from=bu&amp;u=s0exv-erGy0CAPQpK3_1aOvipvYbhcoCHd9PwImPC20&amp;cs=512x0"
+
+    width="128"
+
+    alt="HomeCage logo"
+
+  >
 
 </p>
 # HomeCage
