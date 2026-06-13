@@ -181,16 +181,22 @@ install_python_env() {
   chown -R "$CHOWN_TARGET" "$INSTALL_DIR/.venv"
 }
 
+env_quote() {
+  printf '"'
+  printf "%s" "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\$/\\$/g; s/`/\\`/g'
+  printf '"'
+}
+
 write_env_file() {
   token="$1"
   port="$2"
   mkdir -p "$DATA_DIR"
   chown -R "$CHOWN_TARGET" "$DATA_DIR"
   cat > /etc/"$SERVICE_NAME".env <<EOF
-HOMECAGE_ADMIN_TOKEN=$token
-HOMECAGE_HOST=$HOST
-HOMECAGE_PORT=$port
-HOMECAGE_DATA_DIR=$DATA_DIR
+HOMECAGE_ADMIN_TOKEN=$(env_quote "$token")
+HOMECAGE_HOST=$(env_quote "$HOST")
+HOMECAGE_PORT=$(env_quote "$port")
+HOMECAGE_DATA_DIR=$(env_quote "$DATA_DIR")
 EOF
   chmod 0600 /etc/"$SERVICE_NAME".env
 }
@@ -227,6 +233,14 @@ install_openrc_service() {
 name="HomeCage Server"
 description="HomeCage local admin server"
 supervisor="supervise-daemon"
+
+if [ -r "/etc/conf.d/$SERVICE_NAME" ]; then
+    set -a
+    . "/etc/conf.d/$SERVICE_NAME"
+    set +a
+fi
+
+export HOMECAGE_ADMIN_TOKEN HOMECAGE_HOST HOMECAGE_PORT HOMECAGE_DATA_DIR
 
 command="$INSTALL_DIR/.venv/bin/homecage-server"
 command_user="$SERVICE_USER:$SERVICE_GROUP"
@@ -273,10 +287,14 @@ main() {
     openrc) install_openrc_service ;;
   esac
 
+  server_ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  [ -n "$server_ip" ] || server_ip="127.0.0.1"
+
   echo
   echo "HomeCage Server installed."
   echo "Init system: $init_system"
-  echo "URL: http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo 127.0.0.1):$port/"
+  echo "URL: http://$server_ip:$port/"
+  echo "Port: $port"
   echo "Token: $token"
   echo "Environment file: /etc/$SERVICE_NAME.env"
 }

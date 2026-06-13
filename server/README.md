@@ -43,6 +43,18 @@ For very small systems where service users are not available, run explicitly as 
 SERVICE_USER=root SERVICE_GROUP=root ./install-service.sh
 ```
 
+OpenRC troubleshooting:
+
+```sh
+rc-service homecage-server stop
+grep HOMECAGE_PORT /etc/conf.d/homecage-server /etc/homecage-server.env
+vi /etc/conf.d/homecage-server
+vi /etc/homecage-server.env
+rc-service homecage-server restart
+```
+
+The OpenRC service sources `/etc/conf.d/homecage-server` and exports the `HOMECAGE_*` variables before starting the Python server.
+
 Open:
 
 ```text
