@@ -99,6 +99,8 @@ En Alpine/OpenRC, instala primero las dependencias: `apk add python3 py3-pip py3
 
 El servidor soporta varios teléfonos. Cada teléfono se identifica por Android `ANDROID_ID` y por el nombre configurado en HomeCage Admin -> Remote management. La admin web permite elegir qué teléfono editar.
 
+En el primer contacto, un dispositivo nuevo en el servidor adopta la lista local de apps permitidas del teléfono. Después de guardar la configuración en la admin web o API, el servidor pasa a ser la fuente de verdad para ese dispositivo.
+
 ## Home Assistant
 
 La integración de Home Assistant vive por separado en [`homeassistant/`](homeassistant/) como custom integration para HACS. El servidor no contiene código específico de Home Assistant y expone solo endpoints JSON genéricos.

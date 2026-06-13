@@ -99,6 +99,8 @@ Alpine/OpenRC では先に依存パッケージを入れてください: `apk ad
 
 サーバーは複数の電話をサポートします。各電話は Android `ANDROID_ID` と HomeCage Admin -> Remote management で設定した端末名で識別されます。Web 管理画面で編集する電話を選択できます。
 
+初回接続時、サーバー上の新しい端末は電話側のローカル許可アプリ一覧を取り込みます。その後 Web 管理画面または API で設定を保存すると、その端末ではサーバーが設定の正になります。
+
 ## Home Assistant
 
 Home Assistant 連携は [`homeassistant/`](homeassistant/) に分離された HACS custom integration として配置しています。サーバーには Home Assistant 専用コードを入れず、汎用 JSON endpoints のみを提供します。

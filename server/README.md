@@ -104,6 +104,8 @@ Each phone is identified by the Android `ANDROID_ID` fingerprint and can also se
 
 The server stores per-device config and state in `devices.json`. The old single-device `config.json` and `device_state.json` files are used only for migration when `devices.json` does not exist yet.
 
+On first contact, a new server-side device adopts the phone's local allowed-app list. After the config is saved in the web admin or API, the server becomes the source of truth for that device.
+
 ## Config Updates
 
 The JSON endpoint accepts partial updates:

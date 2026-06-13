@@ -230,6 +230,7 @@ class Config:
     pin: str | None
     lockdown_enabled: bool
     location_request_id: int
+    server_configured: bool
     updated_at: str
 
 
@@ -356,6 +357,7 @@ def default_config_data() -> dict[str, Any]:
         "pin": None,
         "lockdownEnabled": False,
         "locationRequestId": 0,
+        "serverConfigured": False,
         "updatedAt": utc_now(),
     }
 
@@ -373,11 +375,23 @@ def default_device_state(device_id: str, device_name: str) -> dict[str, Any]:
 
 
 def config_from_data(data: dict[str, Any]) -> Config:
+    has_configuration_marker = "serverConfigured" in data
+    is_default_config = (
+        not normalize_packages(data.get("allowedPackages", []))
+        and not data.get("pin")
+        and not parse_bool(data.get("lockdownEnabled"))
+        and max(0, parse_int(data.get("locationRequestId"))) == 0
+    )
     return Config(
         allowed_packages=normalize_packages(data.get("allowedPackages", [])),
         pin=data.get("pin") or None,
         lockdown_enabled=parse_bool(data.get("lockdownEnabled")),
         location_request_id=max(0, parse_int(data.get("locationRequestId"))),
+        server_configured=(
+            parse_bool(data.get("serverConfigured"))
+            if has_configuration_marker
+            else not is_default_config
+        ),
         updated_at=data.get("updatedAt") or utc_now(),
     )
 
@@ -388,6 +402,7 @@ def config_to_data(config: Config) -> dict[str, Any]:
         "pin": config.pin,
         "lockdownEnabled": config.lockdown_enabled,
         "locationRequestId": config.location_request_id,
+        "serverConfigured": config.server_configured,
         "updatedAt": config.updated_at,
     }
 
@@ -502,12 +517,14 @@ def write_config(
     pin: str | None,
     lockdown_enabled: bool,
     location_request_id: int,
+    server_configured: bool = True,
 ) -> Config:
     config = Config(
         allowed_packages=normalize_packages(allowed_packages),
         pin=pin,
         lockdown_enabled=lockdown_enabled,
         location_request_id=max(0, int(location_request_id)),
+        server_configured=server_configured,
         updated_at=utc_now(),
     )
     store = read_devices_store()
@@ -521,6 +538,42 @@ def config_to_api(config: Config, device_id: str) -> dict[str, Any]:
     data = config_to_data(config)
     data["deviceId"] = device_id
     return data
+
+
+def maybe_bootstrap_config_from_device_state(
+    device: dict[str, Any],
+    local_allowed_packages: Any,
+) -> bool:
+    config = config_from_data(device.get("config", default_config_data()))
+    if config.server_configured:
+        return False
+
+    allowed_packages = normalize_packages(local_allowed_packages)
+    if not allowed_packages:
+        return False
+
+    bootstrapped_config = Config(
+        allowed_packages=allowed_packages,
+        pin=config.pin,
+        lockdown_enabled=config.lockdown_enabled,
+        location_request_id=config.location_request_id,
+        server_configured=True,
+        updated_at=utc_now(),
+    )
+    device["config"] = config_to_data(bootstrapped_config)
+    return True
+
+
+def maybe_bootstrap_config_from_stored_state(
+    store: dict[str, Any],
+    device_id: str,
+) -> bool:
+    device = ensure_device(store, device_id)
+    state = device.get("state") if isinstance(device.get("state"), dict) else {}
+    return maybe_bootstrap_config_from_device_state(
+        device,
+        state.get("localAllowedPackages") if isinstance(state, dict) else None,
+    )
 
 
 def device_state_for(store: dict[str, Any], device_id: str) -> dict[str, Any]:
@@ -1025,6 +1078,9 @@ async def admin(request: Request) -> Response:
     selected_device_id = resolve_device_id(request, store)
     devices = list_device_summaries(store)
     if selected_device_id:
+        if maybe_bootstrap_config_from_stored_state(store, selected_device_id):
+            write_devices_store(store)
+            devices = list_device_summaries(store)
         config = read_config(selected_device_id)
         device_state = device_state_for(store, selected_device_id)
     else:
@@ -1098,6 +1154,8 @@ async def api_config(request: Request) -> Response:
             device_id,
             request.query_params.get("deviceName"),
         )
+        write_devices_store(store)
+    elif maybe_bootstrap_config_from_stored_state(store, device_id):
         write_devices_store(store)
     return Response(
         content=json.dumps(
@@ -1194,6 +1252,10 @@ async def api_device_state(request: Request) -> Response:
     normalized_apps.sort(key=lambda app: (app["label"].casefold(), app["packageName"]))
     store = read_devices_store()
     device = ensure_device(store, device_id, device_name)
+    maybe_bootstrap_config_from_device_state(
+        device,
+        payload.get("localAllowedPackages"),
+    )
     previous_state = device.get("state") if isinstance(device.get("state"), dict) else {}
     previous_location = previous_state.get("location") if isinstance(previous_state, dict) else None
     location = (
