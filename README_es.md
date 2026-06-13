@@ -87,6 +87,15 @@ El servidor puede activar el modo perdido y solicitar la ubicación del disposit
 
 La sincronización se programa aproximadamente cada 10 minutos cuando hay red. Abrir o volver al launcher HomeCage también fuerza un intento de sincronización. Si no hay red, la app mantiene la última configuración local.
 
+Instalación automática del servidor como servicio Linux:
+
+```bash
+cd server
+sudo ./install-service.sh
+```
+
+El servidor soporta varios teléfonos. Cada teléfono se identifica por Android `ANDROID_ID` y por el nombre configurado en HomeCage Admin -> Remote management. La admin web permite elegir qué teléfono editar.
+
 ## Home Assistant
 
 La integración de Home Assistant vive por separado en [`homeassistant/`](homeassistant/) como custom integration para HACS. El servidor no contiene código específico de Home Assistant y expone solo endpoints JSON genéricos.

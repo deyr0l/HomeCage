@@ -101,6 +101,7 @@
     <string name="toast_open_settings_failed">Android 設定を開けませんでした</string>
 
     <string name="server_url_hint">https://kid.example.local</string>
+    <string name="device_name_hint">サーバーに表示する端末名</string>
     <string name="server_token_hint">サーバートークン（設定済みの場合）</string>
     <string name="sync_status_format">最終成功: %1$s\n状態: %2$s</string>
     <string name="button_save_server">サーバーを保存</string>

@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import HomeCageClient
-from .const import DOMAIN, PLATFORMS
+from .const import CONF_DEVICE_ID, DOMAIN, PLATFORMS
 from .coordinator import HomeCageDataUpdateCoordinator
 
 
@@ -19,6 +19,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         session=session,
         base_url=entry.data[CONF_URL],
         token=entry.data.get(CONF_TOKEN, ""),
+        device_id=entry.data[CONF_DEVICE_ID],
     )
     coordinator = HomeCageDataUpdateCoordinator(hass, api)
     await coordinator.async_config_entry_first_refresh()

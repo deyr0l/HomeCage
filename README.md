@@ -159,6 +159,15 @@ set +a
 homecage-server
 ```
 
+Automated Linux service install:
+
+```bash
+cd server
+sudo ./install-service.sh
+```
+
+The installer detects systemd or OpenRC, finds a free port, creates `/opt/homecage-server`, writes the environment file, and enables the service on boot.
+
 Open the web admin:
 
 ```text
@@ -178,6 +187,8 @@ Supported web UI languages:
 Remote config can also enable lost mode and request the device location. Lost mode blocks allowed apps, quick calls, launchers, installers, and settings until the server disables it again. If the phone has no network, it keeps the last local config and tries again later.
 
 Background sync is scheduled roughly every 10 minutes when a network is available. Opening or returning to the HomeCage launcher also forces a sync attempt.
+
+The server supports multiple phones. Each device is identified by Android `ANDROID_ID` and a human-readable name configured in HomeCage Admin -> Remote management. The web admin lets you choose which phone you are editing.
 
 ## Home Assistant
 

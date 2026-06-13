@@ -23,7 +23,9 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = Path(env_value("HOMECAGE_DATA_DIR", str(ROOT_DIR / "data")))
 CONFIG_PATH = DATA_DIR / "config.json"
 DEVICE_STATE_PATH = DATA_DIR / "device_state.json"
+DEVICES_PATH = DATA_DIR / "devices.json"
 ADMIN_TOKEN = env_value("HOMECAGE_ADMIN_TOKEN", "")
+LEGACY_DEVICE_ID = "legacy"
 DEFAULT_LANGUAGE = "en"
 SUPPORTED_LANGUAGES = ("en", "ru", "es", "zh-CN", "ja")
 LANGUAGE_LABELS = {
@@ -41,6 +43,9 @@ MESSAGES = {
         "auth_note": "Token auth",
         "clear_remote_pin": "Clear remote PIN command",
         "config": "Config",
+        "device": "Device",
+        "device_id": "Device ID",
+        "devices": "Devices",
         "extra_packages": "Additional package names",
         "extra_packages_help": "Packages missing from the last phone report",
         "language": "Language",
@@ -53,6 +58,7 @@ MESSAGES = {
         "lockdown_help": "When lost mode is enabled, the phone blocks apps, quick calls, launchers, installers, and settings until the server turns it off.",
         "lockdown_section": "Lost mode",
         "no_data": "no data",
+        "no_devices": "No phones have reported to this server yet. Configure the server in HomeCage and run sync on the phone.",
         "pin_label": "New PIN, 4-12 digits. Leave empty to keep current. Current state: {pin_status}.",
         "pin_invalid": "PIN must contain 4-12 digits",
         "pin_section": "App PIN",
@@ -71,6 +77,9 @@ MESSAGES = {
         "auth_note": "Token auth",
         "clear_remote_pin": "Очистить remote PIN-команду",
         "config": "Конфиг",
+        "device": "Устройство",
+        "device_id": "ID устройства",
+        "devices": "Устройства",
         "extra_packages": "Дополнительные package names",
         "extra_packages_help": "Пакеты, которых нет в последнем отчете телефона",
         "language": "Язык",
@@ -83,6 +92,7 @@ MESSAGES = {
         "lockdown_help": "Когда режим включен, телефон блокирует приложения, быстрые вызовы, лаунчеры, установщики и настройки, пока сервер не выключит режим.",
         "lockdown_section": "Режим потери",
         "no_data": "нет данных",
+        "no_devices": "Телефоны еще не присылали отчеты на этот сервер. Укажите сервер в HomeCage и запустите синхронизацию на телефоне.",
         "pin_label": "Новый PIN, 4-12 цифр. Оставьте пустым, чтобы не менять. Сейчас: {pin_status}.",
         "pin_invalid": "PIN должен содержать 4-12 цифр",
         "pin_section": "PIN приложения",
@@ -101,6 +111,9 @@ MESSAGES = {
         "auth_note": "Autenticación por token",
         "clear_remote_pin": "Borrar comando remoto de PIN",
         "config": "Config",
+        "device": "Dispositivo",
+        "device_id": "ID de dispositivo",
+        "devices": "Dispositivos",
         "extra_packages": "Nombres de paquete adicionales",
         "extra_packages_help": "Paquetes que no aparecen en el último informe del teléfono",
         "language": "Idioma",
@@ -113,6 +126,7 @@ MESSAGES = {
         "lockdown_help": "Cuando el modo perdido está activo, el teléfono bloquea apps, llamadas rápidas, launchers, instaladores y ajustes hasta que el servidor lo desactive.",
         "lockdown_section": "Modo perdido",
         "no_data": "sin datos",
+        "no_devices": "Ningún teléfono informó a este servidor todavía. Configura el servidor en HomeCage y ejecuta la sincronización en el teléfono.",
         "pin_label": "Nuevo PIN, 4-12 dígitos. Déjalo vacío para no cambiarlo. Estado actual: {pin_status}.",
         "pin_invalid": "El PIN debe contener 4-12 dígitos",
         "pin_section": "PIN de la app",
@@ -131,6 +145,9 @@ MESSAGES = {
         "auth_note": "令牌认证",
         "clear_remote_pin": "清除远程 PIN 命令",
         "config": "配置",
+        "device": "设备",
+        "device_id": "设备 ID",
+        "devices": "设备",
         "extra_packages": "额外包名",
         "extra_packages_help": "上次手机报告中缺失的包名",
         "language": "语言",
@@ -143,6 +160,7 @@ MESSAGES = {
         "lockdown_help": "启用丢失模式后，手机会阻止应用、快速拨号、启动器、安装器和设置，直到服务器关闭该模式。",
         "lockdown_section": "丢失模式",
         "no_data": "无数据",
+        "no_devices": "还没有手机向此服务器上报。请在 HomeCage 中配置服务器并在手机上执行同步。",
         "pin_label": "新 PIN，4-12 位数字。留空则不更改。当前状态：{pin_status}。",
         "pin_invalid": "PIN 必须包含 4-12 位数字",
         "pin_section": "应用 PIN",
@@ -161,6 +179,9 @@ MESSAGES = {
         "auth_note": "トークン認証",
         "clear_remote_pin": "リモート PIN コマンドを消去",
         "config": "設定",
+        "device": "端末",
+        "device_id": "端末 ID",
+        "devices": "端末",
         "extra_packages": "追加パッケージ名",
         "extra_packages_help": "最後の電話レポートにないパッケージ",
         "language": "言語",
@@ -173,6 +194,7 @@ MESSAGES = {
         "lockdown_help": "紛失モードが有効な間、サーバーが解除するまでアプリ、クイック通話、ランチャー、インストーラー、設定をブロックします。",
         "lockdown_section": "紛失モード",
         "no_data": "データなし",
+        "no_devices": "このサーバーにはまだ電話からのレポートがありません。HomeCage でサーバーを設定し、電話で同期してください。",
         "pin_label": "新しい PIN、4-12 桁。変更しない場合は空のままにします。現在: {pin_status}。",
         "pin_invalid": "PIN は 4-12 桁の数字で入力してください",
         "pin_section": "アプリ PIN",
@@ -194,6 +216,15 @@ class Config:
     lockdown_enabled: bool
     location_request_id: int
     updated_at: str
+
+
+@dataclass(frozen=True)
+class DeviceSummary:
+    device_id: str
+    name: str
+    reported_at: str | None
+    allowed_packages_count: int
+    lockdown_enabled: bool
 
 
 def utc_now() -> str:
@@ -304,17 +335,29 @@ def write_json(path: Path, data: dict[str, Any]) -> None:
     temporary_path.replace(path)
 
 
-def read_config() -> Config:
-    data = read_json(
-        CONFIG_PATH,
-        {
-            "allowedPackages": [],
-            "pin": None,
-            "lockdownEnabled": False,
-            "locationRequestId": 0,
-            "updatedAt": utc_now(),
-        },
-    )
+def default_config_data() -> dict[str, Any]:
+    return {
+        "allowedPackages": [],
+        "pin": None,
+        "lockdownEnabled": False,
+        "locationRequestId": 0,
+        "updatedAt": utc_now(),
+    }
+
+
+def default_device_state(device_id: str, device_name: str) -> dict[str, Any]:
+    return {
+        "deviceId": device_id,
+        "deviceName": device_name,
+        "reportedAt": None,
+        "installedApps": [],
+        "localAllowedPackages": [],
+        "lockdownEnabled": False,
+        "location": None,
+    }
+
+
+def config_from_data(data: dict[str, Any]) -> Config:
     return Config(
         allowed_packages=normalize_packages(data.get("allowedPackages", [])),
         pin=data.get("pin") or None,
@@ -324,7 +367,122 @@ def read_config() -> Config:
     )
 
 
+def config_to_data(config: Config) -> dict[str, Any]:
+    return {
+        "allowedPackages": config.allowed_packages,
+        "pin": config.pin,
+        "lockdownEnabled": config.lockdown_enabled,
+        "locationRequestId": config.location_request_id,
+        "updatedAt": config.updated_at,
+    }
+
+
+def normalize_device_id(raw_device_id: Any) -> str:
+    device_id = str(raw_device_id or "").strip()
+    return device_id or LEGACY_DEVICE_ID
+
+
+def normalize_device_name(raw_name: Any, fallback: str) -> str:
+    name = str(raw_name or "").strip()
+    if not name:
+        name = fallback
+    return name[:80]
+
+
+def legacy_devices_store() -> dict[str, Any]:
+    if not CONFIG_PATH.exists() and not DEVICE_STATE_PATH.exists():
+        return {"schemaVersion": 1, "devices": {}}
+
+    config_data = read_json(CONFIG_PATH, default_config_data())
+    state = read_json(
+        DEVICE_STATE_PATH,
+        default_device_state(LEGACY_DEVICE_ID, "Legacy device"),
+    )
+    device_id = normalize_device_id(state.get("deviceId") or LEGACY_DEVICE_ID)
+    device_name = normalize_device_name(
+        state.get("deviceName") or state.get("deviceModel"),
+        "Legacy device",
+    )
+    state["deviceId"] = device_id
+    state["deviceName"] = device_name
+    return {
+        "schemaVersion": 1,
+        "devices": {
+            device_id: {
+                "deviceId": device_id,
+                "name": device_name,
+                "config": config_data,
+                "state": state,
+            }
+        },
+    }
+
+
+def read_devices_store() -> dict[str, Any]:
+    store = read_json(DEVICES_PATH, {})
+    devices = store.get("devices")
+    if isinstance(devices, dict):
+        return {"schemaVersion": 1, "devices": devices}
+    return legacy_devices_store()
+
+
+def write_devices_store(store: dict[str, Any]) -> None:
+    write_json(DEVICES_PATH, {"schemaVersion": 1, "devices": store.get("devices", {})})
+
+
+def ensure_device(
+    store: dict[str, Any],
+    device_id: str,
+    device_name: str | None = None,
+) -> dict[str, Any]:
+    devices = store.setdefault("devices", {})
+    normalized_id = normalize_device_id(device_id)
+    existing = devices.get(normalized_id)
+    name = normalize_device_name(device_name, normalized_id)
+    if not isinstance(existing, dict):
+        existing = {
+            "deviceId": normalized_id,
+            "name": name,
+            "config": default_config_data(),
+            "state": default_device_state(normalized_id, name),
+        }
+        devices[normalized_id] = existing
+    elif device_name:
+        existing["name"] = name
+        state = existing.setdefault("state", default_device_state(normalized_id, name))
+        if isinstance(state, dict):
+            state["deviceName"] = name
+    return existing
+
+
+def first_device_id(store: dict[str, Any]) -> str | None:
+    devices = store.get("devices", {})
+    if not isinstance(devices, dict) or not devices:
+        return None
+    return sorted(devices.keys())[0]
+
+
+def resolve_device_id(
+    request: Request,
+    store: dict[str, Any],
+    payload: dict[str, Any] | None = None,
+) -> str | None:
+    raw_device_id = request.query_params.get("deviceId")
+    if payload is not None and not raw_device_id:
+        raw_device_id = payload.get("deviceId")
+    if raw_device_id:
+        return normalize_device_id(raw_device_id)
+    return first_device_id(store)
+
+
+def read_config(device_id: str) -> Config:
+    store = read_devices_store()
+    device = ensure_device(store, device_id)
+    return config_from_data(device.get("config", default_config_data()))
+
+
 def write_config(
+    device_id: str,
     allowed_packages: list[str],
     pin: str | None,
     lockdown_enabled: bool,
@@ -337,30 +495,64 @@ def write_config(
         location_request_id=max(0, int(location_request_id)),
         updated_at=utc_now(),
     )
-    write_json(
-        CONFIG_PATH,
-        {
-            "allowedPackages": config.allowed_packages,
-            "pin": config.pin,
-            "lockdownEnabled": config.lockdown_enabled,
-            "locationRequestId": config.location_request_id,
-            "updatedAt": config.updated_at,
-        },
-    )
+    store = read_devices_store()
+    device = ensure_device(store, device_id)
+    device["config"] = config_to_data(config)
+    write_devices_store(store)
     return config
 
 
-def config_to_api(config: Config) -> dict[str, Any]:
+def config_to_api(config: Config, device_id: str) -> dict[str, Any]:
+    data = config_to_data(config)
+    data["deviceId"] = device_id
+    return data
+
+
+def device_state_for(store: dict[str, Any], device_id: str) -> dict[str, Any]:
+    device = ensure_device(store, device_id)
+    state = device.get("state")
+    if isinstance(state, dict):
+        return state
+    return default_device_state(device_id, str(device.get("name") or device_id))
+
+
+def list_device_summaries(store: dict[str, Any]) -> list[DeviceSummary]:
+    devices = store.get("devices", {})
+    summaries: list[DeviceSummary] = []
+    if not isinstance(devices, dict):
+        return summaries
+    for device_id, raw_device in devices.items():
+        if not isinstance(raw_device, dict):
+            continue
+        config = config_from_data(raw_device.get("config", default_config_data()))
+        state = raw_device.get("state") if isinstance(raw_device.get("state"), dict) else {}
+        summaries.append(
+            DeviceSummary(
+                device_id=str(device_id),
+                name=normalize_device_name(raw_device.get("name"), str(device_id)),
+                reported_at=state.get("reportedAt"),
+                allowed_packages_count=len(config.allowed_packages),
+                lockdown_enabled=config.lockdown_enabled,
+            )
+        )
+    return sorted(summaries, key=lambda item: (item.name.casefold(), item.device_id))
+
+
+def device_summary_to_api(summary: DeviceSummary) -> dict[str, Any]:
     return {
-        "allowedPackages": config.allowed_packages,
-        "pin": config.pin,
-        "lockdownEnabled": config.lockdown_enabled,
-        "locationRequestId": config.location_request_id,
-        "updatedAt": config.updated_at,
+        "deviceId": summary.device_id,
+        "name": summary.name,
+        "reportedAt": summary.reported_at,
+        "allowedPackagesCount": summary.allowed_packages_count,
+        "lockdownEnabled": summary.lockdown_enabled,
     }
 
 
-def write_config_from_payload(payload: dict[str, Any], current_config: Config) -> Config:
+def write_config_from_payload(
+    device_id: str,
+    payload: dict[str, Any],
+    current_config: Config,
+) -> Config:
     allowed_packages = current_config.allowed_packages
     if "allowedPackages" in payload:
         raw_packages = payload.get("allowedPackages") or []
@@ -387,6 +579,7 @@ def write_config_from_payload(payload: dict[str, Any], current_config: Config) -
         location_request_id += 1
 
     return write_config(
+        device_id=device_id,
         allowed_packages=allowed_packages,
         pin=pin,
         lockdown_enabled=parse_bool(
@@ -448,20 +641,6 @@ def get_form_list(form: Any, key: str) -> list[str]:
     return [str(value)]
 
 
-def read_device_state() -> dict[str, Any]:
-    return read_json(
-        DEVICE_STATE_PATH,
-        {
-            "deviceId": None,
-            "reportedAt": None,
-            "installedApps": [],
-            "localAllowedPackages": [],
-            "lockdownEnabled": False,
-            "location": None,
-        },
-    )
-
-
 def location_summary(device_state: dict[str, Any], language: str) -> str:
     location = device_state.get("location")
     if not isinstance(location, dict):
@@ -514,7 +693,13 @@ def normalize_location_payload(raw_location: Any) -> dict[str, Any] | None:
     return location
 
 
-def render_admin_page(config: Config, device_state: dict[str, Any], language: str) -> str:
+def render_admin_page(
+    config: Config,
+    device_state: dict[str, Any],
+    devices: list[DeviceSummary],
+    selected_device_id: str | None,
+    language: str,
+) -> str:
     installed_apps = device_state.get("installedApps", [])
     known_packages = {app.get("packageName") for app in installed_apps}
     extra_packages = [pkg for pkg in config.allowed_packages if pkg not in known_packages]
@@ -553,15 +738,31 @@ def render_admin_page(config: Config, device_state: dict[str, Any], language: st
     lockdown_checked = "checked" if config.lockdown_enabled else ""
     location_html = location_summary(device_state, language)
     page_title = html.escape(message(language, "title"))
+    selected_device = next(
+        (device for device in devices if device.device_id == selected_device_id),
+        None,
+    )
+    device_links = " ".join(
+        (
+            f"<strong>{html.escape(device.name)}</strong>"
+            if device.device_id == selected_device_id
+            else (
+                f"<a href='/?lang={quote(language)}&deviceId={quote(device.device_id)}'>"
+                f"{html.escape(device.name)}</a>"
+            )
+        )
+        for device in devices
+    ) or f"<span>{html.escape(message(language, 'no_devices'))}</span>"
+    device_query = f"&deviceId={quote(selected_device_id)}" if selected_device_id else ""
     language_links = " ".join(
         (
             f"<strong>{html.escape(LANGUAGE_LABELS[code])}</strong>"
             if code == language
-            else f"<a href='/?lang={quote(code)}'>{html.escape(LANGUAGE_LABELS[code])}</a>"
+            else f"<a href='/?lang={quote(code)}{device_query}'>{html.escape(LANGUAGE_LABELS[code])}</a>"
         )
         for code in SUPPORTED_LANGUAGES
     )
-    form_action = f"/admin/config?lang={quote(language)}"
+    form_action = f"/admin/config?lang={quote(language)}{device_query}"
     pin_label = html.escape(message(language, "pin_label", pin_status=pin_status))
 
     return f"""<!doctype html>
@@ -624,14 +825,18 @@ def render_admin_page(config: Config, device_state: dict[str, Any], language: st
       font-size: 14px;
     }}
     .language-switch a,
-    .language-switch strong {{
+    .language-switch strong,
+    .device-switch a,
+    .device-switch strong,
+    .device-switch span {{
       color: white;
       text-decoration: none;
       border: 1px solid rgba(255, 255, 255, 0.24);
       border-radius: 999px;
       padding: 6px 10px;
     }}
-    .language-switch strong {{
+    .language-switch strong,
+    .device-switch strong {{
       background: #2563eb;
       border-color: #2563eb;
     }}
@@ -707,13 +912,18 @@ def render_admin_page(config: Config, device_state: dict[str, Any], language: st
       <span>{html.escape(message(language, "config"))}: {updated_at}</span>
       <span>{html.escape(message(language, "last_phone_report"))}: {reported_at}</span>
       <span>{html.escape(message(language, "auth_note"))}: {html.escape(auth_note)}</span>
+      <span>{html.escape(message(language, "device"))}: {html.escape(selected_device.name if selected_device else message(language, "no_data"))}</span>
     </div>
+    <nav class="language-switch device-switch" aria-label="{html.escape(message(language, "devices"))}">
+      {device_links}
+    </nav>
     <nav class="language-switch" aria-label="{html.escape(message(language, "language"))}">
       {language_links}
     </nav>
   </header>
   <main>
     <form method="post" action="{form_action}">
+      <input type="hidden" name="deviceId" value="{html.escape(selected_device_id or '')}">
       <section class="panel">
         <h2>{html.escape(message(language, "allowed_apps"))}</h2>
         <div class="app-list">{app_list}</div>
@@ -761,8 +971,23 @@ async def admin(request: Request) -> Response:
     if not is_authorized(request):
         return unauthorized()
     language = resolve_language(request)
+    store = read_devices_store()
+    selected_device_id = resolve_device_id(request, store)
+    devices = list_device_summaries(store)
+    if selected_device_id:
+        config = read_config(selected_device_id)
+        device_state = device_state_for(store, selected_device_id)
+    else:
+        config = config_from_data(default_config_data())
+        device_state = default_device_state("", "")
     return Response(
-        content=render_admin_page(read_config(), read_device_state(), language),
+        content=render_admin_page(
+            config,
+            device_state,
+            devices,
+            selected_device_id,
+            language,
+        ),
         media_type="text/html",
     )
 
@@ -776,7 +1001,15 @@ async def update_config(request: Request) -> Redirect | Response:
     form = await request.form()
     selected_packages = get_form_list(form, "package")
     manual_packages = split_packages(str(form.get("manualPackages") or ""))
-    current_config = read_config()
+    store = read_devices_store()
+    device_id = resolve_device_id(request, store, {"deviceId": form.get("deviceId")})
+    if not device_id:
+        return Response(
+            content=message(language, "no_devices"),
+            status_code=400,
+            media_type="text/plain",
+        )
+    current_config = read_config(device_id)
     action = str(form.get("action") or "save")
     lockdown_enabled = form.get("lockdownEnabled") == "1"
     location_request_id = current_config.location_request_id
@@ -793,20 +1026,46 @@ async def update_config(request: Request) -> Redirect | Response:
         )
 
     config = write_config(
+        device_id,
         selected_packages + manual_packages,
         pin,
         lockdown_enabled,
         location_request_id,
     )
-    return Redirect(path=f"/?lang={quote(language)}")
+    return Redirect(path=f"/?lang={quote(language)}&deviceId={quote(device_id)}")
 
 
 @get("/api/config")
 async def api_config(request: Request) -> Response:
     if not is_authorized(request):
         return unauthorized()
+    store = read_devices_store()
+    device_id = resolve_device_id(request, store)
+    if not device_id:
+        device_id = normalize_device_id(request.query_params.get("deviceId"))
+        ensure_device(
+            store,
+            device_id,
+            request.query_params.get("deviceName"),
+        )
+        write_devices_store(store)
     return Response(
-        content=json.dumps(config_to_api(read_config()), ensure_ascii=False),
+        content=json.dumps(
+            config_to_api(read_config(device_id), device_id),
+            ensure_ascii=False,
+        ),
+        media_type="application/json",
+    )
+
+
+@get("/api/devices")
+async def api_devices(request: Request) -> Response:
+    if not is_authorized(request):
+        return unauthorized()
+    store = read_devices_store()
+    devices = [device_summary_to_api(device) for device in list_device_summaries(store)]
+    return Response(
+        content=json.dumps({"devices": devices}, ensure_ascii=False),
         media_type="application/json",
     )
 
@@ -817,8 +1076,18 @@ async def api_update_config(request: Request) -> Response:
         return unauthorized()
 
     payload = await request.json()
+    store = read_devices_store()
+    device_id = resolve_device_id(request, store, payload)
+    if not device_id:
+        return Response(
+            content="deviceId is required",
+            status_code=400,
+            media_type="text/plain",
+        )
+    ensure_device(store, device_id, payload.get("deviceName"))
+    write_devices_store(store)
     try:
-        config = write_config_from_payload(payload, read_config())
+        config = write_config_from_payload(device_id, payload, read_config(device_id))
     except ValueError as error:
         return Response(
             content=str(error),
@@ -827,7 +1096,7 @@ async def api_update_config(request: Request) -> Response:
         )
 
     return Response(
-        content=json.dumps(config_to_api(config), ensure_ascii=False),
+        content=json.dumps(config_to_api(config, device_id), ensure_ascii=False),
         media_type="application/json",
     )
 
@@ -836,8 +1105,16 @@ async def api_update_config(request: Request) -> Response:
 async def api_get_device_state(request: Request) -> Response:
     if not is_authorized(request):
         return unauthorized()
+    store = read_devices_store()
+    device_id = resolve_device_id(request, store)
+    if not device_id:
+        return Response(
+            content="deviceId is required",
+            status_code=400,
+            media_type="text/plain",
+        )
     return Response(
-        content=json.dumps(read_device_state(), ensure_ascii=False),
+        content=json.dumps(device_state_for(store, device_id), ensure_ascii=False),
         media_type="application/json",
     )
 
@@ -848,6 +1125,8 @@ async def api_device_state(request: Request) -> Response:
         return unauthorized()
 
     payload = await request.json()
+    device_id = normalize_device_id(payload.get("deviceId"))
+    device_name = normalize_device_name(payload.get("deviceName"), device_id)
     installed_apps = payload.get("installedApps") or []
     normalized_apps = []
     for app in installed_apps:
@@ -865,14 +1144,19 @@ async def api_device_state(request: Request) -> Response:
     normalized_apps.sort(key=lambda app: (app["label"].casefold(), app["packageName"]))
     location = normalize_location_payload(payload.get("location"))
     state = {
-        "deviceId": payload.get("deviceId"),
+        "deviceId": device_id,
+        "deviceName": device_name,
         "reportedAt": utc_now(),
         "installedApps": normalized_apps,
         "localAllowedPackages": normalize_packages(payload.get("localAllowedPackages") or []),
         "lockdownEnabled": parse_bool(payload.get("lockdownEnabled")),
         "location": location,
     }
-    write_json(DEVICE_STATE_PATH, state)
+    store = read_devices_store()
+    device = ensure_device(store, device_id, device_name)
+    device["name"] = device_name
+    device["state"] = state
+    write_devices_store(store)
     return Response(content=json.dumps({"ok": True}), media_type="application/json")
 
 
@@ -881,6 +1165,7 @@ app = Litestar(
         admin,
         update_config,
         api_config,
+        api_devices,
         api_update_config,
         api_get_device_state,
         api_device_state,

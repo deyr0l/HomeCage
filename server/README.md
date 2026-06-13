@@ -16,6 +16,14 @@ set +a
 homecage-server
 ```
 
+Automated Linux service install:
+
+```bash
+sudo ./install-service.sh
+```
+
+The installer detects systemd or OpenRC, copies the server to `/opt/homecage-server`, creates a virtual environment, finds a free port starting at `8000`, writes `/etc/homecage-server.env`, and enables the service on boot.
+
 Open:
 
 ```text
@@ -46,17 +54,24 @@ HOMECAGE_DATA_DIR=./data
 ## API
 
 - `POST /api/device-state` - app list report from the phone.
-- `GET /api/config` - allowlist and remote PIN config for the phone.
-- `POST /api/config` - partial JSON config update.
-- `GET /api/device-state` - latest phone report.
+- `GET /api/devices` - known phones.
+- `GET /api/config?deviceId=<id>` - allowlist and remote PIN config for one phone.
+- `POST /api/config?deviceId=<id>` - partial JSON config update for one phone.
+- `GET /api/device-state?deviceId=<id>` - latest phone report for one phone.
 
 With token auth:
 
 ```bash
-curl -H "Authorization: Bearer change-this-token" http://localhost:8000/api/config
+curl -H "Authorization: Bearer change-this-token" http://localhost:8000/api/devices
 ```
 
 For release phone builds, put this server behind HTTPS.
+
+## Multiple Devices
+
+Each phone is identified by the Android `ANDROID_ID` fingerprint and can also send a human-readable device name from the app's Admin -> Remote management section.
+
+The server stores per-device config and state in `devices.json`. The old single-device `config.json` and `device_state.json` files are used only for migration when `devices.json` does not exist yet.
 
 ## Config Updates
 
@@ -67,7 +82,7 @@ curl \
   -H "Authorization: Bearer change-this-token" \
   -H "Content-Type: application/json" \
   -d '{"lockdownEnabled": true, "requestLocation": true}' \
-  http://localhost:8000/api/config
+  'http://localhost:8000/api/config?deviceId=android-id-here'
 ```
 
 Home Assistant support is shipped as a separate HACS custom integration in `../homeassistant`. The server intentionally exposes only generic JSON endpoints.

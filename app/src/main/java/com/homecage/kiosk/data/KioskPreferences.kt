@@ -1,6 +1,7 @@
 package com.homecage.kiosk.data
 
 import android.content.Context
+import android.os.Build
 import android.util.Base64
 import com.homecage.kiosk.R
 import com.homecage.kiosk.locale.AppLocaleManager
@@ -87,6 +88,18 @@ class KioskPreferences(private val context: Context) {
     fun setServerToken(serverToken: String) {
         preferences.edit()
             .putString(KEY_SERVER_TOKEN, serverToken.trim())
+            .apply()
+    }
+
+    fun getDeviceName(): String {
+        val savedName = preferences.getString(KEY_DEVICE_NAME, "").orEmpty().trim()
+        if (savedName.isNotEmpty()) return savedName
+        return Build.MODEL?.takeIf { it.isNotBlank() } ?: "HomeCage device"
+    }
+
+    fun setDeviceName(deviceName: String) {
+        preferences.edit()
+            .putString(KEY_DEVICE_NAME, deviceName.trim())
             .apply()
     }
 
@@ -204,6 +217,7 @@ class KioskPreferences(private val context: Context) {
         const val KEY_IS_DEFAULT_PIN = "is_default_pin"
         const val KEY_SERVER_URL = "server_url"
         const val KEY_SERVER_TOKEN = "server_token"
+        const val KEY_DEVICE_NAME = "device_name"
         const val KEY_QUICK_CALL_CONTACTS = "quick_call_contacts"
         const val KEY_LAST_SYNC_ATTEMPT_AT = "last_sync_attempt_at"
         const val KEY_LAST_SYNC_SUCCESS_AT = "last_sync_success_at"

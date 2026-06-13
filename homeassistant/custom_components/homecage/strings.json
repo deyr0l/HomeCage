@@ -8,11 +8,19 @@
           "url": "Server URL",
           "token": "Admin token"
         }
+      },
+      "device": {
+        "title": "Choose Device",
+        "description": "Choose the phone this Home Assistant entry should control.",
+        "data": {
+          "device_id": "Device"
+        }
       }
     },
     "error": {
       "cannot_connect": "Cannot connect to the HomeCage Server",
       "invalid_auth": "The server rejected the token",
+      "no_devices": "No phones have reported to this server yet. Open HomeCage on the phone and run sync first.",
       "unknown": "Unexpected error"
     },
     "abort": {

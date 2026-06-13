@@ -31,8 +31,10 @@ class ConfigSyncer(private val context: Context) {
                 rawServerUrl = preferences.getServerUrl(),
                 token = preferences.getServerToken()
             )
+            val deviceId = deviceId()
+            val deviceName = preferences.getDeviceName()
 
-            val remoteConfig = client.fetchConfig()
+            val remoteConfig = client.fetchConfig(deviceId, deviceName)
             preferences.setAllowedPackages(remoteConfig.allowedPackages)
             preferences.setLockdownEnabled(remoteConfig.lockdownEnabled)
             remoteConfig.pin?.let { preferences.setPin(it) }
@@ -43,7 +45,8 @@ class ConfigSyncer(private val context: Context) {
 
             val locationReport = locationReportFor(remoteConfig.locationRequestId)
             client.reportDeviceState(
-                deviceId = deviceId(),
+                deviceId = deviceId,
+                deviceName = deviceName,
                 installedApps = installedApps,
                 localAllowedPackages = preferences.getAllowedPackages(),
                 lockdownEnabled = preferences.isLockdownEnabled(),

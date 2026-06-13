@@ -101,6 +101,7 @@
     <string name="toast_open_settings_failed">Не удалось открыть настройки Android</string>
 
     <string name="server_url_hint">https://kid.example.local</string>
+    <string name="device_name_hint">Имя устройства на сервере</string>
     <string name="server_token_hint">Токен сервера, если задан</string>
     <string name="sync_status_format">Последний успех: %1$s\nСтатус: %2$s</string>
     <string name="button_save_server">Сохранить сервер</string>

@@ -615,6 +615,9 @@ class MainActivity : Activity() {
     }
 
     private fun serverSection(): View {
+        val deviceName = textInput(getString(R.string.device_name_hint)).apply {
+            setText(preferences.getDeviceName())
+        }
         val serverUrl = textInput(getString(R.string.server_url_hint)).apply {
             setText(preferences.getServerUrl())
         }
@@ -630,12 +633,14 @@ class MainActivity : Activity() {
             )
         )
         val saveButton = adminActionButton(getString(R.string.button_save_server)) {
+            preferences.setDeviceName(deviceName.text.toString())
             preferences.setServerUrl(serverUrl.text.toString())
             preferences.setServerToken(serverToken.text.toString())
             ConfigSyncScheduler.schedule(this)
             Toast.makeText(this, R.string.toast_server_saved, Toast.LENGTH_SHORT).show()
         }
         val syncButton = adminActionButton(getString(R.string.button_sync_now)) {
+            preferences.setDeviceName(deviceName.text.toString())
             preferences.setServerUrl(serverUrl.text.toString())
             preferences.setServerToken(serverToken.text.toString())
             ConfigSyncScheduler.schedule(this)
@@ -653,6 +658,7 @@ class MainActivity : Activity() {
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(infoText(getString(R.string.remote_server_info)))
+            addView(deviceName, matchWrapParams(top = 8))
             addView(serverUrl, matchWrapParams(top = 8))
             addView(serverToken, matchWrapParams(top = 8))
             addView(status, matchWrapParams(top = 10))

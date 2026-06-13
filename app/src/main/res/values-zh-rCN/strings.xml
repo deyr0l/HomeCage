@@ -101,6 +101,7 @@
     <string name="toast_open_settings_failed">无法打开 Android 设置</string>
 
     <string name="server_url_hint">https://kid.example.local</string>
+    <string name="device_name_hint">服务器上的设备名称</string>
     <string name="server_token_hint">服务器令牌（如已设置）</string>
     <string name="sync_status_format">上次成功：%1$s\n状态：%2$s</string>
     <string name="button_save_server">保存服务器</string>

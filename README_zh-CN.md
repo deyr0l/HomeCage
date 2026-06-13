@@ -87,6 +87,15 @@ Android 13+ 上，侧载 APK 可能需要手动允许受限设置：
 
 有网络时同步大约每 10 分钟调度一次。打开或返回 HomeCage 启动器也会强制尝试同步。如果没有网络，应用会继续使用最后的本地配置。
 
+将服务器自动安装为 Linux service：
+
+```bash
+cd server
+sudo ./install-service.sh
+```
+
+服务器支持多台手机。每台手机通过 Android `ANDROID_ID` 和 HomeCage Admin -> Remote management 中设置的设备名称识别。网页管理界面可以选择要编辑的手机。
+
 ## Home Assistant
 
 Home Assistant 集成独立放在 [`homeassistant/`](homeassistant/)，作为 HACS custom integration。服务器不包含 Home Assistant 专用代码，只提供通用 JSON endpoints。
