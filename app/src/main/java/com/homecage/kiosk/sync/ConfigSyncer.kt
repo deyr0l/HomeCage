@@ -33,6 +33,16 @@ class ConfigSyncer(private val context: Context) {
             )
             val deviceId = deviceId()
             val deviceName = preferences.getDeviceName()
+            val localAllowedPackagesBeforeSync = preferences.getAllowedPackages()
+
+            client.reportDeviceState(
+                deviceId = deviceId,
+                deviceName = deviceName,
+                installedApps = installedApps,
+                localAllowedPackages = localAllowedPackagesBeforeSync,
+                lockdownEnabled = preferences.isLockdownEnabled(),
+                location = null
+            )
 
             val remoteConfig = client.fetchConfig(deviceId, deviceName)
             preferences.setAllowedPackages(remoteConfig.allowedPackages)

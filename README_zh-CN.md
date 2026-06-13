@@ -99,6 +99,8 @@ cd server
 
 服务器支持多台手机。每台手机通过 Android `ANDROID_ID` 和 HomeCage Admin -> Remote management 中设置的设备名称识别。网页管理界面可以选择要编辑的手机。
 
+首次连接时，服务器上的新设备会采用手机本地的允许应用列表。之后一旦通过网页管理界面或 API 保存配置，服务器就会成为该设备的配置来源。
+
 ## Home Assistant
 
 Home Assistant 集成独立放在 [`homeassistant/`](homeassistant/)，作为 HACS custom integration。服务器不包含 Home Assistant 专用代码，只提供通用 JSON endpoints。

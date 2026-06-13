@@ -52,6 +52,9 @@ MESSAGES = {
         "last_phone_report": "Phone report",
         "latest_location": "Latest location",
         "location_not_reported": "not reported",
+        "location_no_request": "No location request has been sent yet.",
+        "location_pending": "Request #{request_id} is waiting for the next phone sync.",
+        "location_reported": "Request #{request_id} answered at {reported_at}.",
         "location_request": "Location request",
         "location_status": "Location status: {status}",
         "lockdown_enabled": "Enable lost mode",
@@ -86,6 +89,9 @@ MESSAGES = {
         "last_phone_report": "Отчет телефона",
         "latest_location": "Последняя локация",
         "location_not_reported": "не передавалась",
+        "location_no_request": "Запрос локации еще не отправлялся.",
+        "location_pending": "Запрос #{request_id} ждет следующей синхронизации телефона.",
+        "location_reported": "Запрос #{request_id} обработан в {reported_at}.",
         "location_request": "Запрос локации",
         "location_status": "Статус локации: {status}",
         "lockdown_enabled": "Включить режим потерянного телефона",
@@ -120,6 +126,9 @@ MESSAGES = {
         "last_phone_report": "Informe del teléfono",
         "latest_location": "Última ubicación",
         "location_not_reported": "sin reporte",
+        "location_no_request": "Aún no se envió ninguna solicitud de ubicación.",
+        "location_pending": "La solicitud #{request_id} espera la próxima sincronización del teléfono.",
+        "location_reported": "La solicitud #{request_id} fue respondida a las {reported_at}.",
         "location_request": "Solicitud de ubicación",
         "location_status": "Estado de ubicación: {status}",
         "lockdown_enabled": "Activar modo perdido",
@@ -154,6 +163,9 @@ MESSAGES = {
         "last_phone_report": "手机报告",
         "latest_location": "最新位置",
         "location_not_reported": "未上报",
+        "location_no_request": "尚未发送位置请求。",
+        "location_pending": "请求 #{request_id} 正在等待手机下次同步。",
+        "location_reported": "请求 #{request_id} 已在 {reported_at} 响应。",
         "location_request": "位置请求",
         "location_status": "位置状态：{status}",
         "lockdown_enabled": "启用丢失模式",
@@ -188,6 +200,9 @@ MESSAGES = {
         "last_phone_report": "電話レポート",
         "latest_location": "最新の位置情報",
         "location_not_reported": "未報告",
+        "location_no_request": "位置情報リクエストはまだ送信されていません。",
+        "location_pending": "リクエスト #{request_id} は次回の電話同期を待っています。",
+        "location_reported": "リクエスト #{request_id} は {reported_at} に応答されました。",
         "location_request": "位置情報リクエスト",
         "location_status": "位置情報ステータス: {status}",
         "lockdown_enabled": "紛失モードを有効化",
@@ -215,6 +230,7 @@ class Config:
     pin: str | None
     lockdown_enabled: bool
     location_request_id: int
+    server_configured: bool
     updated_at: str
 
 
@@ -341,6 +357,7 @@ def default_config_data() -> dict[str, Any]:
         "pin": None,
         "lockdownEnabled": False,
         "locationRequestId": 0,
+        "serverConfigured": False,
         "updatedAt": utc_now(),
     }
 
@@ -358,11 +375,23 @@ def default_device_state(device_id: str, device_name: str) -> dict[str, Any]:
 
 
 def config_from_data(data: dict[str, Any]) -> Config:
+    has_configuration_marker = "serverConfigured" in data
+    is_default_config = (
+        not normalize_packages(data.get("allowedPackages", []))
+        and not data.get("pin")
+        and not parse_bool(data.get("lockdownEnabled"))
+        and max(0, parse_int(data.get("locationRequestId"))) == 0
+    )
     return Config(
         allowed_packages=normalize_packages(data.get("allowedPackages", [])),
         pin=data.get("pin") or None,
         lockdown_enabled=parse_bool(data.get("lockdownEnabled")),
         location_request_id=max(0, parse_int(data.get("locationRequestId"))),
+        server_configured=(
+            parse_bool(data.get("serverConfigured"))
+            if has_configuration_marker
+            else not is_default_config
+        ),
         updated_at=data.get("updatedAt") or utc_now(),
     )
 
@@ -373,6 +402,7 @@ def config_to_data(config: Config) -> dict[str, Any]:
         "pin": config.pin,
         "lockdownEnabled": config.lockdown_enabled,
         "locationRequestId": config.location_request_id,
+        "serverConfigured": config.server_configured,
         "updatedAt": config.updated_at,
     }
 
@@ -487,12 +517,14 @@ def write_config(
     pin: str | None,
     lockdown_enabled: bool,
     location_request_id: int,
+    server_configured: bool = True,
 ) -> Config:
     config = Config(
         allowed_packages=normalize_packages(allowed_packages),
         pin=pin,
         lockdown_enabled=lockdown_enabled,
         location_request_id=max(0, int(location_request_id)),
+        server_configured=server_configured,
         updated_at=utc_now(),
     )
     store = read_devices_store()
@@ -506,6 +538,42 @@ def config_to_api(config: Config, device_id: str) -> dict[str, Any]:
     data = config_to_data(config)
     data["deviceId"] = device_id
     return data
+
+
+def maybe_bootstrap_config_from_device_state(
+    device: dict[str, Any],
+    local_allowed_packages: Any,
+) -> bool:
+    config = config_from_data(device.get("config", default_config_data()))
+    if config.server_configured:
+        return False
+
+    allowed_packages = normalize_packages(local_allowed_packages)
+    if not allowed_packages:
+        return False
+
+    bootstrapped_config = Config(
+        allowed_packages=allowed_packages,
+        pin=config.pin,
+        lockdown_enabled=config.lockdown_enabled,
+        location_request_id=config.location_request_id,
+        server_configured=True,
+        updated_at=utc_now(),
+    )
+    device["config"] = config_to_data(bootstrapped_config)
+    return True
+
+
+def maybe_bootstrap_config_from_stored_state(
+    store: dict[str, Any],
+    device_id: str,
+) -> bool:
+    device = ensure_device(store, device_id)
+    state = device.get("state") if isinstance(device.get("state"), dict) else {}
+    return maybe_bootstrap_config_from_device_state(
+        device,
+        state.get("localAllowedPackages") if isinstance(state, dict) else None,
+    )
 
 
 def device_state_for(store: dict[str, Any], device_id: str) -> dict[str, Any]:
@@ -631,7 +699,10 @@ def get_form_list(form: Any, key: str) -> list[str]:
     for method_name in ("getall", "getlist"):
         getter = getattr(form, method_name, None)
         if callable(getter):
-            return [str(value) for value in getter(key)]
+            try:
+                return [str(value) for value in getter(key)]
+            except KeyError:
+                return []
 
     value = form.get(key)
     if value is None:
@@ -662,6 +733,36 @@ def location_summary(device_state: dict[str, Any], language: str) -> str:
             f"<small>{html.escape(provider)} · {html.escape(str(captured_at))}</small>"
         )
     return html.escape(message(language, "location_status", status=status))
+
+
+def location_request_summary(config: Config, device_state: dict[str, Any], language: str) -> str:
+    if config.location_request_id <= 0:
+        return html.escape(message(language, "location_no_request"))
+
+    location = device_state.get("location")
+    reported_request_id = 0
+    reported_at = message(language, "no_data")
+    if isinstance(location, dict):
+        reported_request_id = parse_int(location.get("requestId"))
+        reported_at = str(location.get("reportedAt") or reported_at)
+
+    if reported_request_id >= config.location_request_id:
+        return html.escape(
+            message(
+                language,
+                "location_reported",
+                request_id=config.location_request_id,
+                reported_at=reported_at,
+            )
+        )
+
+    return html.escape(
+        message(
+            language,
+            "location_pending",
+            request_id=config.location_request_id,
+        )
+    )
 
 
 def normalize_location_payload(raw_location: Any) -> dict[str, Any] | None:
@@ -737,6 +838,7 @@ def render_admin_page(
     updated_at = html.escape(config.updated_at)
     lockdown_checked = "checked" if config.lockdown_enabled else ""
     location_html = location_summary(device_state, language)
+    location_request_html = location_request_summary(config, device_state, language)
     page_title = html.escape(message(language, "title"))
     selected_device = next(
         (device for device in devices if device.device_id == selected_device_id),
@@ -945,6 +1047,7 @@ def render_admin_page(
       </section>
       <section class="panel">
         <h2>{html.escape(message(language, "location_request"))}</h2>
+        <p class="muted">{location_request_html}</p>
         <p class="muted"><strong>{html.escape(message(language, "latest_location"))}:</strong><br>{location_html}</p>
         <button type="submit" name="action" value="requestLocation">{html.escape(message(language, "request_location"))}</button>
       </section>
@@ -975,6 +1078,9 @@ async def admin(request: Request) -> Response:
     selected_device_id = resolve_device_id(request, store)
     devices = list_device_summaries(store)
     if selected_device_id:
+        if maybe_bootstrap_config_from_stored_state(store, selected_device_id):
+            write_devices_store(store)
+            devices = list_device_summaries(store)
         config = read_config(selected_device_id)
         device_state = device_state_for(store, selected_device_id)
     else:
@@ -1048,6 +1154,8 @@ async def api_config(request: Request) -> Response:
             device_id,
             request.query_params.get("deviceName"),
         )
+        write_devices_store(store)
+    elif maybe_bootstrap_config_from_stored_state(store, device_id):
         write_devices_store(store)
     return Response(
         content=json.dumps(
@@ -1142,7 +1250,19 @@ async def api_device_state(request: Request) -> Response:
         )
 
     normalized_apps.sort(key=lambda app: (app["label"].casefold(), app["packageName"]))
-    location = normalize_location_payload(payload.get("location"))
+    store = read_devices_store()
+    device = ensure_device(store, device_id, device_name)
+    maybe_bootstrap_config_from_device_state(
+        device,
+        payload.get("localAllowedPackages"),
+    )
+    previous_state = device.get("state") if isinstance(device.get("state"), dict) else {}
+    previous_location = previous_state.get("location") if isinstance(previous_state, dict) else None
+    location = (
+        normalize_location_payload(payload.get("location"))
+        if "location" in payload
+        else previous_location
+    )
     state = {
         "deviceId": device_id,
         "deviceName": device_name,
@@ -1152,8 +1272,6 @@ async def api_device_state(request: Request) -> Response:
         "lockdownEnabled": parse_bool(payload.get("lockdownEnabled")),
         "location": location,
     }
-    store = read_devices_store()
-    device = ensure_device(store, device_id, device_name)
     device["name"] = device_name
     device["state"] = state
     write_devices_store(store)

@@ -86,15 +86,20 @@ class HomeCageLocationStatusSensor(HomeCageBaseSensor):
     def native_value(self) -> str:
         """Return latest location status."""
         location = self.device_state.get("location") or {}
+        requested_id = self._location_request_id(self.config)
+        reported_id = self._location_request_id(location)
+        if requested_id > 0 and reported_id < requested_id:
+            return "pending"
         return str(location.get("status") or "unknown")
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return location attributes."""
+        requested_id = self._location_request_id(self.config)
         location = self.device_state.get("location")
         if not isinstance(location, dict):
-            return {}
-        return {
+            return {"requestedId": requested_id} if requested_id > 0 else {}
+        attributes = {
             key: value
             for key, value in location.items()
             if key
@@ -108,6 +113,16 @@ class HomeCageLocationStatusSensor(HomeCageBaseSensor):
                 "reportedAt",
             }
         }
+        if requested_id > 0:
+            attributes["requestedId"] = requested_id
+        return attributes
+
+    @staticmethod
+    def _location_request_id(payload: dict[str, Any]) -> int:
+        try:
+            return int(payload.get("locationRequestId") or payload.get("requestId") or 0)
+        except (TypeError, ValueError):
+            return 0
 
 
 class HomeCageLastPhoneReportSensor(HomeCageBaseSensor):

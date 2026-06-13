@@ -191,6 +191,8 @@ Background sync is scheduled roughly every 10 minutes when a network is availabl
 
 The server supports multiple phones. Each device is identified by Android `ANDROID_ID` and a human-readable name configured in HomeCage Admin -> Remote management. The web admin lets you choose which phone you are editing.
 
+On first contact, a new server-side device adopts the phone's local allowed-app list. After the config is saved in the web admin or API, the server becomes the source of truth for that device.
+
 ## Home Assistant
 
 Home Assistant support lives in [`homeassistant/`](homeassistant/) as a separate HACS custom integration. The server stays Home Assistant-agnostic and exposes only generic JSON endpoints.
