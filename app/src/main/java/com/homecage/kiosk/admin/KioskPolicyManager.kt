@@ -43,17 +43,21 @@ class KioskPolicyManager(private val context: Context) {
     fun setHomeCommand(): String =
         "adb shell cmd package set-home-activity ${ComponentName(context, com.homecage.kiosk.MainActivity::class.java).flattenToShortString()}"
 
-    fun applyDeviceOwnerPolicies(allowedPackages: Set<String>) {
+    fun applyDeviceOwnerPolicies(allowedPackages: Set<String>, lockdownEnabled: Boolean = false) {
         if (!isDeviceOwner()) return
 
         setHomeCageAsPersistentHome()
 
-        val lockTaskPackages = (
-            allowedPackages +
-                context.packageName +
-                KioskPackagePolicy.phonePackages +
-                KioskPackagePolicy.allowedSystemPackages
-            ).toTypedArray()
+        val lockTaskPackages = if (lockdownEnabled) {
+            (setOf(context.packageName) + KioskPackagePolicy.allowedSystemPackages).toTypedArray()
+        } else {
+            (
+                allowedPackages +
+                    context.packageName +
+                    KioskPackagePolicy.phonePackages +
+                    KioskPackagePolicy.allowedSystemPackages
+                ).toTypedArray()
+        }
         runCatching {
             devicePolicyManager.setLockTaskPackages(adminComponent, lockTaskPackages)
         }

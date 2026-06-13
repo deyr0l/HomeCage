@@ -59,6 +59,9 @@ class KioskAccessibilityService : AccessibilityService() {
 
     private fun isAllowedPackage(packageName: String, preferences: KioskPreferences): Boolean {
         if (packageName == this.packageName) return true
+        if (preferences.isLockdownEnabled()) {
+            return packageName in KioskPackagePolicy.allowedSystemPackages
+        }
         if (packageName in KioskPackagePolicy.blockedSystemPackages) return false
         if (packageName in KioskPackagePolicy.allowedSystemPackages) return true
         if (packageName in KioskPackagePolicy.phonePackages) return true

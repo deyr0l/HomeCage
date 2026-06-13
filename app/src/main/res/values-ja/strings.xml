@@ -30,6 +30,8 @@
     <string name="home_quick_contacts_many">%1$d 件のクイック連絡先</string>
     <string name="home_no_quick_contacts">クイック連絡先は設定されていません</string>
     <string name="home_no_allowed_apps">許可されたアプリはまだありません</string>
+    <string name="home_lockdown_title">端末はロックされています</string>
+    <string name="home_lockdown_message">リモート紛失モードが有効です。サーバーが解除するまで、アプリ、通話、設定はブロックされます。</string>
     <string name="home_emergency_contact">緊急連絡先</string>
     <string name="home_allowed_app_label">許可されたアプリ</string>
     <string name="home_admin_content_description">管理を開く</string>
@@ -52,6 +54,8 @@
 
     <string name="toast_call_permission_enabled">通話権限が有効になりました</string>
     <string name="toast_call_permission_missing">通話権限がないためクイック通話は使えません</string>
+    <string name="toast_location_permission_enabled">位置情報権限が有効になりました</string>
+    <string name="toast_location_permission_missing">位置情報権限がない場合、サーバーの位置情報リクエストは権限拒否として報告されます</string>
     <string name="toast_allowed_list_saved">リストを保存しました</string>
     <string name="toast_kiosk_paused">アプリに戻るまで kiosk を停止しました</string>
     <string name="toast_protection_disabled">保護を無効にしました。アプリを削除できます。</string>
@@ -59,6 +63,7 @@
     <string name="toast_launch_blocked">Android により起動がブロックされました</string>
     <string name="toast_quick_calls_need_permission">クイック通話には管理画面で通話権限が必要です</string>
     <string name="toast_call_failed">通話を開始できませんでした</string>
+    <string name="toast_lockdown_active">リモート紛失モードが有効です</string>
     <string name="toast_server_saved">サーバー設定を保存しました</string>
     <string name="toast_quick_calls_saved">クイック通話を保存しました</string>
     <string name="toast_language_saved">言語を保存しました</string>
@@ -85,16 +90,18 @@
     <string name="status_not_allowed">未許可</string>
     <string name="status_calls_allowed">許可</string>
     <string name="status_calls_not_allowed">未許可</string>
-    <string name="fallback_status">Device Admin: %1$s\nAccessibility 保護: %2$s\n通話: %3$s</string>
+    <string name="fallback_status">Device Admin: %1$s\nAccessibility 保護: %2$s\n通話: %3$s\n位置情報: %4$s</string>
     <string name="button_enable_device_admin">Device Admin を有効化</string>
     <string name="button_open_accessibility">Accessibility を開く</string>
     <string name="button_open_accessibility_service">HomeCage Accessibility を開く</string>
     <string name="button_open_restricted_settings">制限付き設定を開く</string>
     <string name="button_allow_calls">通話を許可</string>
+    <string name="button_allow_location">位置情報を許可</string>
     <string name="restricted_settings_help">Android がアクセス拒否を表示した場合は、制限付き設定を開き、HomeCage のアプリ情報ページで三点メニューから Allow restricted settings を選び、ここに戻って Accessibility をもう一度開いてください。</string>
     <string name="toast_open_settings_failed">Android 設定を開けませんでした</string>
 
     <string name="server_url_hint">https://kid.example.local</string>
+    <string name="device_name_hint">サーバーに表示する端末名</string>
     <string name="server_token_hint">サーバートークン（設定済みの場合）</string>
     <string name="sync_status_format">最終成功: %1$s\n状態: %2$s</string>
     <string name="button_save_server">サーバーを保存</string>

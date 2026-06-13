@@ -1,6 +1,7 @@
 package com.homecage.kiosk.data
 
 import android.content.Context
+import android.os.Build
 import android.util.Base64
 import com.homecage.kiosk.R
 import com.homecage.kiosk.locale.AppLocaleManager
@@ -90,6 +91,18 @@ class KioskPreferences(private val context: Context) {
             .apply()
     }
 
+    fun getDeviceName(): String {
+        val savedName = preferences.getString(KEY_DEVICE_NAME, "").orEmpty().trim()
+        if (savedName.isNotEmpty()) return savedName
+        return Build.MODEL?.takeIf { it.isNotBlank() } ?: "HomeCage device"
+    }
+
+    fun setDeviceName(deviceName: String) {
+        preferences.edit()
+            .putString(KEY_DEVICE_NAME, deviceName.trim())
+            .apply()
+    }
+
     fun getLastSyncAttemptAt(): Long =
         preferences.getLong(KEY_LAST_SYNC_ATTEMPT_AT, 0L)
 
@@ -98,6 +111,24 @@ class KioskPreferences(private val context: Context) {
 
     fun getLastSyncMessage(): String =
         preferences.getString(KEY_LAST_SYNC_MESSAGE, context.getString(R.string.sync_never)).orEmpty()
+
+    fun isLockdownEnabled(): Boolean =
+        preferences.getBoolean(KEY_LOCKDOWN_ENABLED, false)
+
+    fun setLockdownEnabled(enabled: Boolean) {
+        preferences.edit()
+            .putBoolean(KEY_LOCKDOWN_ENABLED, enabled)
+            .apply()
+    }
+
+    fun getHandledLocationRequestId(): Long =
+        preferences.getLong(KEY_HANDLED_LOCATION_REQUEST_ID, 0L)
+
+    fun setHandledLocationRequestId(requestId: Long) {
+        preferences.edit()
+            .putLong(KEY_HANDLED_LOCATION_REQUEST_ID, requestId)
+            .apply()
+    }
 
     fun markSyncAttempt(atMillis: Long) {
         preferences.edit()
@@ -186,11 +217,14 @@ class KioskPreferences(private val context: Context) {
         const val KEY_IS_DEFAULT_PIN = "is_default_pin"
         const val KEY_SERVER_URL = "server_url"
         const val KEY_SERVER_TOKEN = "server_token"
+        const val KEY_DEVICE_NAME = "device_name"
         const val KEY_QUICK_CALL_CONTACTS = "quick_call_contacts"
         const val KEY_LAST_SYNC_ATTEMPT_AT = "last_sync_attempt_at"
         const val KEY_LAST_SYNC_SUCCESS_AT = "last_sync_success_at"
         const val KEY_LAST_SYNC_MESSAGE = "last_sync_message"
         const val KEY_ADMIN_SESSION_UNTIL = "admin_session_until"
+        const val KEY_LOCKDOWN_ENABLED = "lockdown_enabled"
+        const val KEY_HANDLED_LOCATION_REQUEST_ID = "handled_location_request_id"
         const val DEFAULT_SERVER_URL = ""
         const val ADMIN_SESSION_DURATION_MS = 5 * 60 * 1000L
         const val PIN_HASH_ITERATIONS = 80_000

@@ -1,0 +1,53 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HomeCage Server",
+        "description": "Connect Home Assistant to your HomeCage Server.",
+        "data": {
+          "url": "Server URL",
+          "token": "Admin token"
+        }
+      },
+      "device": {
+        "title": "Choose Device",
+        "description": "Choose the phone this Home Assistant entry should control.",
+        "data": {
+          "device_id": "Device"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the HomeCage Server",
+      "invalid_auth": "The server rejected the token",
+      "no_devices": "No phones have reported to this server yet. Open HomeCage on the phone and run sync first.",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This HomeCage Server is already configured"
+    }
+  },
+  "entity": {
+    "button": {
+      "request_location": {
+        "name": "Request location"
+      }
+    },
+    "sensor": {
+      "allowed_apps": {
+        "name": "Allowed apps"
+      },
+      "last_phone_report": {
+        "name": "Last phone report"
+      },
+      "location_status": {
+        "name": "Location status"
+      }
+    },
+    "switch": {
+      "lost_mode": {
+        "name": "Lost mode"
+      }
+    }
+  }
+}

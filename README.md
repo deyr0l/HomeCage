@@ -18,7 +18,8 @@ Translations: [Русский](README_ru.md), [Español](README_es.md), [简体�
 
 ## Social restrictions!!!!!
 - HomeCage is not spyware.
-- HomeCage does not read messages, contacts, location, camera, microphone, or notifications.
+- HomeCage does not read messages, contacts, camera, microphone, or notifications.
+- HomeCage reads location only when the admin grants location permission and the server asks for a lost-device report.
 - HomeCage is not designed for covert monitoring.
 - HomeCage is a visible launcher restriction tool for parent-managed devices.
 
@@ -115,11 +116,12 @@ HomeCage keeps the permission set intentionally small:
 | `ACCESS_NETWORK_STATE` | Lets Android schedule sync only when a network is available. Required for JobScheduler network constraints. |
 | `RECEIVE_BOOT_COMPLETED` | Re-schedules background sync after reboot. |
 | `CALL_PHONE` | Optional quick-call buttons. The app does not read contacts. |
+| `ACCESS_COARSE_LOCATION` / `ACCESS_FINE_LOCATION` | Optional server-requested location report for lost-device workflows. HomeCage reads the last known Android location only after the server asks for it. |
 | Device Admin / Device Owner | Prevents a child from removing protection without the admin PIN and enables Lock Task policies. |
 | Accessibility service | Fallback protection on devices where Device Owner is not active. It observes the current foreground package and returns to HomeCage when a blocked app, launcher, installer, or settings screen is opened. |
 | Package visibility query for launcher apps | Lets the admin screen list installed launchable apps. This is not `QUERY_ALL_PACKAGES`. |
 
-Not used: Usage Access (`PACKAGE_USAGE_STATS`), draw-over-other-apps (`SYSTEM_ALERT_WINDOW`), contacts, SMS, location, camera, microphone, notification listener, VPN, or `QUERY_ALL_PACKAGES`.
+Not used: Usage Access (`PACKAGE_USAGE_STATS`), draw-over-other-apps (`SYSTEM_ALERT_WINDOW`), contacts, SMS, camera, microphone, notification listener, VPN, or `QUERY_ALL_PACKAGES`.
 
 ## Accessibility And Restricted Settings
 
@@ -157,6 +159,16 @@ set +a
 homecage-server
 ```
 
+Automated Linux service install:
+
+```sh
+# Run as root from the server directory.
+cd server
+./install-service.sh
+```
+
+On Alpine/OpenRC, install prerequisites first: `apk add python3 py3-pip py3-virtualenv openrc`. The installer detects systemd or OpenRC, creates the `homecage` service user/group, finds a free port, creates `/opt/homecage-server`, writes the environment file, and enables the service on boot.
+
 Open the web admin:
 
 ```text
@@ -172,6 +184,16 @@ Supported web UI languages:
 /?lang=zh-CN
 /?lang=ja
 ```
+
+Remote config can also enable lost mode and request the device location. Lost mode blocks allowed apps, quick calls, launchers, installers, and settings until the server disables it again. If the phone has no network, it keeps the last local config and tries again later.
+
+Background sync is scheduled roughly every 10 minutes when a network is available. Opening or returning to the HomeCage launcher also forces a sync attempt.
+
+The server supports multiple phones. Each device is identified by Android `ANDROID_ID` and a human-readable name configured in HomeCage Admin -> Remote management. The web admin lets you choose which phone you are editing.
+
+## Home Assistant
+
+Home Assistant support lives in [`homeassistant/`](homeassistant/) as a separate HACS custom integration. The server stays Home Assistant-agnostic and exposes only generic JSON endpoints.
 
 ## Removal
 

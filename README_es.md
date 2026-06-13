@@ -62,11 +62,12 @@ Device Owner normalmente requiere un dispositivo limpio antes de añadir cuentas
 | `ACCESS_NETWORK_STATE` | Programar sync solo cuando hay red disponible. |
 | `RECEIVE_BOOT_COMPLETED` | Reprogramar sync después de reiniciar. |
 | `CALL_PHONE` | Botones de llamada rápida. La app no lee contactos. |
+| `ACCESS_COARSE_LOCATION` / `ACCESS_FINE_LOCATION` | Reporte opcional de ubicación cuando el servidor lo solicita. |
 | Device Admin / Device Owner | Evita que el niño quite la protección sin PIN y permite Lock Task. |
 | Accessibility service | Protección alternativa: detecta el paquete en primer plano y vuelve a HomeCage si la pantalla no está permitida. |
 | Visibilidad de apps launcher | Lista apps instaladas en la admin. No es `QUERY_ALL_PACKAGES`. |
 
-No se usa: Usage Access (`PACKAGE_USAGE_STATS`), draw-over-other-apps (`SYSTEM_ALERT_WINDOW`), contactos, SMS, ubicación, cámara, micrófono, notification listener, VPN ni `QUERY_ALL_PACKAGES`.
+No se usa: Usage Access (`PACKAGE_USAGE_STATS`), draw-over-other-apps (`SYSTEM_ALERT_WINDOW`), contactos, SMS, cámara, micrófono, notification listener, VPN ni `QUERY_ALL_PACKAGES`.
 
 ## Accessibility y restricted settings
 
@@ -77,6 +78,30 @@ En Android 13+ un APK instalado fuera de Play puede necesitar:
 3. Menú de tres puntos.
 4. `Allow restricted settings`.
 5. Volver a HomeCage Admin y activar Accessibility.
+
+## Servidor remoto
+
+La app funciona sin servidor y conserva la configuración local. Si el servidor está configurado y disponible, su configuración sobrescribe la lista local de apps permitidas.
+
+El servidor puede activar el modo perdido y solicitar la ubicación del dispositivo. En modo perdido se bloquean apps permitidas, llamadas rápidas, launchers, instaladores y ajustes hasta que el servidor lo desactive.
+
+La sincronización se programa aproximadamente cada 10 minutos cuando hay red. Abrir o volver al launcher HomeCage también fuerza un intento de sincronización. Si no hay red, la app mantiene la última configuración local.
+
+Instalación automática del servidor como servicio Linux:
+
+```sh
+# Ejecutar como root desde la carpeta server.
+cd server
+./install-service.sh
+```
+
+En Alpine/OpenRC, instala primero las dependencias: `apk add python3 py3-pip py3-virtualenv openrc`. El script crea el usuario/grupo de servicio `homecage`, busca un puerto libre y activa el servicio al inicio.
+
+El servidor soporta varios teléfonos. Cada teléfono se identifica por Android `ANDROID_ID` y por el nombre configurado en HomeCage Admin -> Remote management. La admin web permite elegir qué teléfono editar.
+
+## Home Assistant
+
+La integración de Home Assistant vive por separado en [`homeassistant/`](homeassistant/) como custom integration para HACS. El servidor no contiene código específico de Home Assistant y expone solo endpoints JSON genéricos.
 
 ## Desinstalación
 

@@ -13,9 +13,10 @@ class ConfigSyncer(private val context: Context) {
     private val localizedContext = AppLocaleManager.wrap(appContext)
     private val preferences = KioskPreferences(appContext)
 
-    fun shouldSyncNow(nowMillis: Long = System.currentTimeMillis()): Boolean {
+    fun shouldSyncNow(nowMillis: Long = System.currentTimeMillis(), force: Boolean = false): Boolean {
         val serverUrl = preferences.getServerUrl()
         if (serverUrl.isBlank()) return false
+        if (force) return true
         return nowMillis - preferences.getLastSyncAttemptAt() >= MIN_SYNC_INTERVAL_MS
     }
 
@@ -30,16 +31,30 @@ class ConfigSyncer(private val context: Context) {
                 rawServerUrl = preferences.getServerUrl(),
                 token = preferences.getServerToken()
             )
+            val deviceId = deviceId()
+            val deviceName = preferences.getDeviceName()
 
-            client.reportDeviceState(
-                deviceId = deviceId(),
-                installedApps = installedApps,
-                localAllowedPackages = preferences.getAllowedPackages()
-            )
-            val remoteConfig = client.fetchConfig()
+            val remoteConfig = client.fetchConfig(deviceId, deviceName)
             preferences.setAllowedPackages(remoteConfig.allowedPackages)
+            preferences.setLockdownEnabled(remoteConfig.lockdownEnabled)
             remoteConfig.pin?.let { preferences.setPin(it) }
-            KioskPolicyManager(appContext).applyDeviceOwnerPolicies(remoteConfig.allowedPackages)
+            KioskPolicyManager(appContext).applyDeviceOwnerPolicies(
+                allowedPackages = remoteConfig.allowedPackages,
+                lockdownEnabled = remoteConfig.lockdownEnabled
+            )
+
+            val locationReport = locationReportFor(remoteConfig.locationRequestId)
+            client.reportDeviceState(
+                deviceId = deviceId,
+                deviceName = deviceName,
+                installedApps = installedApps,
+                localAllowedPackages = preferences.getAllowedPackages(),
+                lockdownEnabled = preferences.isLockdownEnabled(),
+                location = locationReport
+            )
+            if (locationReport != null) {
+                preferences.setHandledLocationRequestId(locationReport.requestId)
+            }
 
             val message = localizedContext.getString(
                 R.string.sync_success_message,
@@ -62,7 +77,13 @@ class ConfigSyncer(private val context: Context) {
         Settings.Secure.getString(appContext.contentResolver, Settings.Secure.ANDROID_ID)
             ?: "unknown"
 
+    private fun locationReportFor(locationRequestId: Long): DeviceLocationReport? {
+        if (locationRequestId <= 0L) return null
+        if (locationRequestId <= preferences.getHandledLocationRequestId()) return null
+        return DeviceLocationProvider(appContext).reportForRequest(locationRequestId)
+    }
+
     companion object {
-        const val MIN_SYNC_INTERVAL_MS = 15 * 60 * 1000L
+        const val MIN_SYNC_INTERVAL_MS = 10 * 60 * 1000L
     }
 }
