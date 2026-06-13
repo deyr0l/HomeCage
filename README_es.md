@@ -89,24 +89,7 @@ La sincronización se programa aproximadamente cada 10 minutos cuando hay red. A
 
 ## Home Assistant
 
-HomeCage Server expone REST endpoints:
-
-```text
-GET  /api/home-assistant/state
-POST /api/home-assistant/config
-```
-
-Ejemplo:
-
-```json
-{
-  "lockdownEnabled": true,
-  "requestLocation": true,
-  "allowedPackagesText": "com.android.dialer\norg.example.app"
-}
-```
-
-Si se define `HOMECAGE_HA_MQTT_HOST`, el servidor publica MQTT Discovery: un switch de modo perdido, un botón para solicitar ubicación y sensores para apps permitidas, estado de ubicación y último reporte del teléfono.
+La integración de Home Assistant vive por separado en [`homeassistant/`](homeassistant/) como custom integration para HACS. El servidor no contiene código específico de Home Assistant y expone solo endpoints JSON genéricos.
 
 ## Desinstalación
 

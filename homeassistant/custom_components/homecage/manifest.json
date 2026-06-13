@@ -1,0 +1,14 @@
+{
+  "codeowners": [
+    "@deyr0l"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/deyr0l/HomeCage/tree/main/homeassistant",
+  "domain": "homecage",
+  "integration_type": "hub",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/deyr0l/HomeCage/issues",
+  "name": "HomeCage",
+  "requirements": [],
+  "version": "0.1.0"
+}

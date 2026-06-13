@@ -1,0 +1,10 @@
+{
+  "domains": [
+    "switch",
+    "button",
+    "sensor"
+  ],
+  "homeassistant": "2024.6.0",
+  "name": "HomeCage",
+  "render_readme": true
+}

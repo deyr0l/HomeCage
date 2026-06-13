@@ -24,7 +24,6 @@ DATA_DIR = Path(env_value("HOMECAGE_DATA_DIR", str(ROOT_DIR / "data")))
 CONFIG_PATH = DATA_DIR / "config.json"
 DEVICE_STATE_PATH = DATA_DIR / "device_state.json"
 ADMIN_TOKEN = env_value("HOMECAGE_ADMIN_TOKEN", "")
-MQTT_CLIENT = None
 DEFAULT_LANGUAGE = "en"
 SUPPORTED_LANGUAGES = ("en", "ru", "es", "zh-CN", "ja")
 LANGUAGE_LABELS = {
@@ -358,25 +357,6 @@ def config_to_api(config: Config) -> dict[str, Any]:
         "lockdownEnabled": config.lockdown_enabled,
         "locationRequestId": config.location_request_id,
         "updatedAt": config.updated_at,
-    }
-
-
-def home_assistant_state_payload(
-    config: Config,
-    device_state: dict[str, Any],
-) -> dict[str, Any]:
-    return {
-        "allowedPackages": config.allowed_packages,
-        "allowedPackagesText": "\n".join(config.allowed_packages),
-        "allowedPackagesCount": len(config.allowed_packages),
-        "pinSet": config.pin is not None,
-        "lockdownEnabled": config.lockdown_enabled,
-        "locationRequestId": config.location_request_id,
-        "configUpdatedAt": config.updated_at,
-        "deviceId": device_state.get("deviceId"),
-        "deviceReportedAt": device_state.get("reportedAt"),
-        "localAllowedPackages": device_state.get("localAllowedPackages") or [],
-        "location": device_state.get("location"),
     }
 
 
@@ -818,7 +798,6 @@ async def update_config(request: Request) -> Redirect | Response:
         lockdown_enabled,
         location_request_id,
     )
-    publish_home_assistant_state(config, read_device_state())
     return Redirect(path=f"/?lang={quote(language)}")
 
 
@@ -832,21 +811,8 @@ async def api_config(request: Request) -> Response:
     )
 
 
-@get("/api/home-assistant/state")
-async def api_home_assistant_state(request: Request) -> Response:
-    if not is_authorized(request):
-        return unauthorized()
-    return Response(
-        content=json.dumps(
-            home_assistant_state_payload(read_config(), read_device_state()),
-            ensure_ascii=False,
-        ),
-        media_type="application/json",
-    )
-
-
-@post("/api/home-assistant/config", status_code=200)
-async def api_home_assistant_config(request: Request) -> Response:
+@post("/api/config", status_code=200)
+async def api_update_config(request: Request) -> Response:
     if not is_authorized(request):
         return unauthorized()
 
@@ -860,13 +826,18 @@ async def api_home_assistant_config(request: Request) -> Response:
             media_type="text/plain",
         )
 
-    device_state = read_device_state()
-    publish_home_assistant_state(config, device_state)
     return Response(
-        content=json.dumps(
-            home_assistant_state_payload(config, device_state),
-            ensure_ascii=False,
-        ),
+        content=json.dumps(config_to_api(config), ensure_ascii=False),
+        media_type="application/json",
+    )
+
+
+@get("/api/device-state")
+async def api_get_device_state(request: Request) -> Response:
+    if not is_authorized(request):
+        return unauthorized()
+    return Response(
+        content=json.dumps(read_device_state(), ensure_ascii=False),
         media_type="application/json",
     )
 
@@ -902,164 +873,7 @@ async def api_device_state(request: Request) -> Response:
         "location": location,
     }
     write_json(DEVICE_STATE_PATH, state)
-    publish_home_assistant_state(read_config(), state)
     return Response(content=json.dumps({"ok": True}), media_type="application/json")
-
-
-def mqtt_env(name: str, default: str = "") -> str:
-    return os.getenv(f"HOMECAGE_HA_MQTT_{name}", default)
-
-
-def mqtt_topic_prefix() -> str:
-    return mqtt_env("TOPIC_PREFIX", "homecage").strip().strip("/") or "homecage"
-
-
-def mqtt_discovery_prefix() -> str:
-    return mqtt_env("DISCOVERY_PREFIX", "homeassistant").strip().strip("/") or "homeassistant"
-
-
-def publish_home_assistant_state(
-    config: Config | None = None,
-    device_state: dict[str, Any] | None = None,
-) -> None:
-    client = MQTT_CLIENT
-    if client is None:
-        return
-
-    payload = home_assistant_state_payload(
-        config or read_config(),
-        device_state or read_device_state(),
-    )
-    client.publish(
-        f"{mqtt_topic_prefix()}/state",
-        json.dumps(payload, ensure_ascii=False),
-        retain=True,
-    )
-
-
-def publish_home_assistant_discovery(client: Any) -> None:
-    state_topic = f"{mqtt_topic_prefix()}/state"
-    command_prefix = f"{mqtt_topic_prefix()}/command"
-    discovery_prefix = mqtt_discovery_prefix()
-    device = {
-        "identifiers": ["homecage_server"],
-        "name": "HomeCage",
-        "manufacturer": "HomeCage",
-        "model": "HomeCage Server",
-    }
-    configs = {
-        f"{discovery_prefix}/switch/homecage/lost_mode/config": {
-            "name": "Lost mode",
-            "unique_id": "homecage_lost_mode",
-            "state_topic": state_topic,
-            "command_topic": f"{command_prefix}/lockdown",
-            "value_template": "{{ value_json.lockdownEnabled }}",
-            "payload_on": "true",
-            "payload_off": "false",
-            "state_on": "true",
-            "state_off": "false",
-            "device": device,
-        },
-        f"{discovery_prefix}/button/homecage/request_location/config": {
-            "name": "Request location",
-            "unique_id": "homecage_request_location",
-            "command_topic": f"{command_prefix}/request_location",
-            "payload_press": "request",
-            "device": device,
-        },
-        f"{discovery_prefix}/sensor/homecage/allowed_apps/config": {
-            "name": "Allowed apps",
-            "unique_id": "homecage_allowed_apps",
-            "state_topic": state_topic,
-            "value_template": "{{ value_json.allowedPackagesCount }}",
-            "json_attributes_topic": state_topic,
-            "device": device,
-        },
-        f"{discovery_prefix}/sensor/homecage/location_status/config": {
-            "name": "Location status",
-            "unique_id": "homecage_location_status",
-            "state_topic": state_topic,
-            "value_template": "{{ value_json.location.status if value_json.location else 'unknown' }}",
-            "json_attributes_topic": state_topic,
-            "device": device,
-        },
-        f"{discovery_prefix}/sensor/homecage/last_seen/config": {
-            "name": "Last phone report",
-            "unique_id": "homecage_last_seen",
-            "state_topic": state_topic,
-            "value_template": "{{ value_json.deviceReportedAt }}",
-            "device_class": "timestamp",
-            "device": device,
-        },
-    }
-    for topic, payload in configs.items():
-        client.publish(topic, json.dumps(payload), retain=True)
-
-
-def handle_home_assistant_command(topic: str, payload: str) -> None:
-    command_prefix = f"{mqtt_topic_prefix()}/command"
-    current_config = read_config()
-    if topic == f"{command_prefix}/lockdown":
-        config = write_config_from_payload(
-            {"lockdownEnabled": payload.strip().lower() in {"1", "true", "on"}},
-            current_config,
-        )
-    elif topic == f"{command_prefix}/request_location":
-        config = write_config_from_payload({"requestLocation": True}, current_config)
-    elif topic == f"{command_prefix}/allowed_packages":
-        config = write_config_from_payload({"allowedPackagesText": payload}, current_config)
-    else:
-        return
-    publish_home_assistant_state(config, read_device_state())
-
-
-def start_home_assistant_mqtt() -> None:
-    global MQTT_CLIENT
-    host = mqtt_env("HOST")
-    if not host:
-        return
-
-    try:
-        import paho.mqtt.client as mqtt
-    except ImportError:
-        return
-
-    def on_connect(client: Any, _userdata: Any, _flags: Any, _reason_code: Any, _properties: Any = None) -> None:
-        command_prefix = f"{mqtt_topic_prefix()}/command"
-        client.subscribe(f"{command_prefix}/lockdown")
-        client.subscribe(f"{command_prefix}/request_location")
-        client.subscribe(f"{command_prefix}/allowed_packages")
-        publish_home_assistant_discovery(client)
-        publish_home_assistant_state()
-
-    def on_message(_client: Any, _userdata: Any, message: Any) -> None:
-        payload = message.payload.decode("utf-8", errors="replace")
-        handle_home_assistant_command(message.topic, payload)
-
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=mqtt_env("CLIENT_ID", "homecage-server"))
-    username = mqtt_env("USERNAME")
-    password = mqtt_env("PASSWORD")
-    if username:
-        client.username_pw_set(username, password or None)
-    client.on_connect = on_connect
-    client.on_message = on_message
-
-    try:
-        client.connect(host, int(mqtt_env("PORT", "1883")), keepalive=60)
-    except OSError:
-        return
-    MQTT_CLIENT = client
-    client.loop_start()
-
-
-def stop_home_assistant_mqtt() -> None:
-    global MQTT_CLIENT
-    client = MQTT_CLIENT
-    MQTT_CLIENT = None
-    if client is None:
-        return
-    client.loop_stop()
-    client.disconnect()
 
 
 app = Litestar(
@@ -1067,12 +881,10 @@ app = Litestar(
         admin,
         update_config,
         api_config,
-        api_home_assistant_state,
-        api_home_assistant_config,
+        api_update_config,
+        api_get_device_state,
         api_device_state,
-    ],
-    on_startup=[start_home_assistant_mqtt],
-    on_shutdown=[stop_home_assistant_mqtt],
+    ]
 )
 
 

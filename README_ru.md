@@ -100,24 +100,7 @@ Device Owner обычно назначается только на чистом 
 
 ## Home Assistant
 
-HomeCage Server дает REST endpoints:
-
-```text
-GET  /api/home-assistant/state
-POST /api/home-assistant/config
-```
-
-Пример обновления:
-
-```json
-{
-  "lockdownEnabled": true,
-  "requestLocation": true,
-  "allowedPackagesText": "com.android.dialer\norg.example.app"
-}
-```
-
-Если задать `HOMECAGE_HA_MQTT_HOST`, сервер публикует MQTT Discovery: switch режима потери, кнопку запроса локации и sensors для количества разрешенных приложений, статуса локации и последнего отчета телефона.
+Интеграция Home Assistant лежит отдельно в [`homeassistant/`](homeassistant/) как HACS custom integration. Сервер не содержит Home Assistant-специфичный код и отдает только обычные JSON endpoints.
 
 ## Удаление
 

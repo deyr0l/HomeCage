@@ -41,20 +41,14 @@ HOMECAGE_ADMIN_TOKEN=change-this-token
 HOMECAGE_HOST=0.0.0.0
 HOMECAGE_PORT=8000
 HOMECAGE_DATA_DIR=./data
-HOMECAGE_HA_MQTT_HOST=
-HOMECAGE_HA_MQTT_PORT=1883
-HOMECAGE_HA_MQTT_USERNAME=
-HOMECAGE_HA_MQTT_PASSWORD=
-HOMECAGE_HA_MQTT_TOPIC_PREFIX=homecage
-HOMECAGE_HA_MQTT_DISCOVERY_PREFIX=homeassistant
 ```
 
 ## API
 
 - `POST /api/device-state` - app list report from the phone.
 - `GET /api/config` - allowlist and remote PIN config for the phone.
-- `GET /api/home-assistant/state` - Home Assistant-friendly state snapshot.
-- `POST /api/home-assistant/config` - Home Assistant config update endpoint.
+- `POST /api/config` - partial JSON config update.
+- `GET /api/device-state` - latest phone report.
 
 With token auth:
 
@@ -64,22 +58,16 @@ curl -H "Authorization: Bearer change-this-token" http://localhost:8000/api/conf
 
 For release phone builds, put this server behind HTTPS.
 
-## Home Assistant
+## Config Updates
 
-The REST endpoint accepts partial updates:
+The JSON endpoint accepts partial updates:
 
 ```bash
 curl \
   -H "Authorization: Bearer change-this-token" \
   -H "Content-Type: application/json" \
   -d '{"lockdownEnabled": true, "requestLocation": true}' \
-  http://localhost:8000/api/home-assistant/config
+  http://localhost:8000/api/config
 ```
 
-If `HOMECAGE_HA_MQTT_HOST` is set, the server also publishes MQTT Discovery entities:
-
-- `switch.homecage_lost_mode`
-- `button.homecage_request_location`
-- sensors for allowed app count, location status, and last phone report
-
-MQTT commands update the same config file used by the web admin.
+Home Assistant support is shipped as a separate HACS custom integration in `../homeassistant`. The server intentionally exposes only generic JSON endpoints.

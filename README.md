@@ -18,7 +18,8 @@ Translations: [Русский](README_ru.md), [Español](README_es.md), [简体�
 
 ## Social restrictions!!!!!
 - HomeCage is not spyware.
-- HomeCage does not read messages, contacts, location, camera, microphone, or notifications.
+- HomeCage does not read messages, contacts, camera, microphone, or notifications.
+- HomeCage reads location only when the admin grants location permission and the server asks for a lost-device report.
 - HomeCage is not designed for covert monitoring.
 - HomeCage is a visible launcher restriction tool for parent-managed devices.
 
@@ -180,35 +181,7 @@ Background sync is scheduled roughly every 10 minutes when a network is availabl
 
 ## Home Assistant
 
-HomeCage Server exposes REST endpoints for Home Assistant:
-
-```text
-GET  /api/home-assistant/state
-POST /api/home-assistant/config
-```
-
-`POST /api/home-assistant/config` accepts JSON such as:
-
-```json
-{
-  "lockdownEnabled": true,
-  "requestLocation": true,
-  "allowedPackagesText": "com.android.dialer\norg.example.app"
-}
-```
-
-Optional MQTT Discovery is available when these variables are set on the server:
-
-```env
-HOMECAGE_HA_MQTT_HOST=homeassistant.local
-HOMECAGE_HA_MQTT_PORT=1883
-HOMECAGE_HA_MQTT_USERNAME=
-HOMECAGE_HA_MQTT_PASSWORD=
-HOMECAGE_HA_MQTT_TOPIC_PREFIX=homecage
-HOMECAGE_HA_MQTT_DISCOVERY_PREFIX=homeassistant
-```
-
-MQTT publishes a lost-mode switch, a request-location button, and state sensors for allowed apps, location status, and last phone report.
+Home Assistant support lives in [`homeassistant/`](homeassistant/) as a separate HACS custom integration. The server stays Home Assistant-agnostic and exposes only generic JSON endpoints.
 
 ## Removal
 

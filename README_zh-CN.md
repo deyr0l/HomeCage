@@ -89,24 +89,7 @@ Android 13+ 上，侧载 APK 可能需要手动允许受限设置：
 
 ## Home Assistant
 
-HomeCage Server 提供 REST endpoints：
-
-```text
-GET  /api/home-assistant/state
-POST /api/home-assistant/config
-```
-
-示例：
-
-```json
-{
-  "lockdownEnabled": true,
-  "requestLocation": true,
-  "allowedPackagesText": "com.android.dialer\norg.example.app"
-}
-```
-
-如果设置 `HOMECAGE_HA_MQTT_HOST`，服务器会发布 MQTT Discovery：丢失模式 switch、请求位置按钮，以及允许应用数量、位置状态和最后手机报告的 sensors。
+Home Assistant 集成独立放在 [`homeassistant/`](homeassistant/)，作为 HACS custom integration。服务器不包含 Home Assistant 专用代码，只提供通用 JSON endpoints。
 
 ## 卸载
 
