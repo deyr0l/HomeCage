@@ -1,0 +1,122 @@
+<resources>
+    <string name="app_name">HomeCage</string>
+    <string name="default_pin">1234</string>
+    <string name="accessibility_service_description">HomeCage 会阻止未允许的应用和系统界面，防止孩子离开家长模式。</string>
+
+    <string name="action_admin">管理</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_open">打开</string>
+    <string name="action_disable">停用</string>
+    <string name="action_yes">是</string>
+    <string name="action_no">否</string>
+    <string name="action_back">返回</string>
+    <string name="action_save">保存</string>
+
+    <string name="section_quick_call">快速拨号</string>
+    <string name="section_apps">应用</string>
+    <string name="section_allowed_apps">允许的应用</string>
+    <string name="section_protection_status">保护状态</string>
+    <string name="section_fallback_protection">无 Device Owner 保护</string>
+    <string name="section_admin_pin">管理员 PIN</string>
+    <string name="section_remote_management">远程管理</string>
+    <string name="section_quick_calls">快速拨号</string>
+    <string name="section_language">语言</string>
+    <string name="home_safe_mode_armed">安全模式：已启用</string>
+    <string name="home_section_quick_call">快速拨号</string>
+    <string name="home_section_allowed_apps">允许的应用</string>
+    <string name="home_apps_allowed_one">已允许 %1$d 个应用</string>
+    <string name="home_apps_allowed_many">已允许 %1$d 个应用</string>
+    <string name="home_quick_contacts_one">%1$d 个快速联系人</string>
+    <string name="home_quick_contacts_many">%1$d 个快速联系人</string>
+    <string name="home_no_quick_contacts">未配置快速联系人</string>
+    <string name="home_no_allowed_apps">尚未添加允许的应用</string>
+    <string name="home_emergency_contact">紧急联系人</string>
+    <string name="home_allowed_app_label">允许的应用</string>
+    <string name="home_admin_content_description">打开管理</string>
+    <string name="home_quick_call_content_description">呼叫 %1$s</string>
+    <string name="home_allowed_app_content_description">打开 %1$s</string>
+
+    <string name="pin_label">PIN</string>
+    <string name="admin_pin_title">管理员 PIN</string>
+    <string name="current_pin_hint">当前 PIN</string>
+    <string name="new_pin_hint">新 PIN，4-12 位数字</string>
+    <string name="button_change_pin">更改 PIN</string>
+    <string name="error_wrong_pin">PIN 错误</string>
+    <string name="error_enter_current_pin">请输入当前 PIN</string>
+    <string name="error_enter_4_12_digits">请输入 4-12 位数字</string>
+    <string name="default_pin_warning">当前使用默认 PIN：1234。请修改。</string>
+    <string name="error_pin_check_failed">PIN 检查错误：%1$s</string>
+    <string name="error_pin_change_failed">PIN 更改错误：%1$s</string>
+    <string name="error_pin_change_default">无法更改 PIN</string>
+    <string name="toast_pin_changed">PIN 已更改</string>
+
+    <string name="toast_call_permission_enabled">通话权限已启用</string>
+    <string name="toast_call_permission_missing">没有通话权限，快速拨号无法使用</string>
+    <string name="toast_allowed_list_saved">列表已保存</string>
+    <string name="toast_kiosk_paused">Kiosk 已暂停，直到返回应用</string>
+    <string name="toast_protection_disabled">保护已停用。现在可以卸载应用。</string>
+    <string name="toast_open_failed">无法打开 %1$s</string>
+    <string name="toast_launch_blocked">Android 已阻止启动</string>
+    <string name="toast_quick_calls_need_permission">快速拨号需要在管理中启用通话权限</string>
+    <string name="toast_call_failed">无法开始通话</string>
+    <string name="toast_server_saved">服务器设置已保存</string>
+    <string name="toast_quick_calls_saved">快速拨号已保存</string>
+    <string name="toast_language_saved">语言已保存</string>
+
+    <string name="empty_no_allowed_apps">没有允许的应用</string>
+    <string name="empty_no_launchable_apps">未找到带启动图标的应用。</string>
+    <string name="system_badge">系统</string>
+    <string name="time_none">无</string>
+
+    <string name="button_pause_kiosk_admin">为管理员暂停 kiosk</string>
+    <string name="button_disable_protection_remove">停用保护以卸载</string>
+    <string name="dialog_disable_protection_title">停用保护？</string>
+    <string name="dialog_disable_protection_message">Device Owner 将被停用，kiosk 模式将停止，应用可通过 Android 设置或 ADB 卸载。</string>
+
+    <string name="dialog_quick_call_title">快速拨号</string>
+    <string name="dialog_quick_call_message">拨打 %1$s？</string>
+
+    <string name="policy_device_owner_active">Device Owner 已启用。HomeCage 已固定为主屏幕，Lock Task 将应用到所选应用。</string>
+    <string name="policy_device_owner_inactive">Device Owner 未启用。没有它，Android 可能允许孩子选择普通启动器并离开应用。\n\n%1$s\n%2$s</string>
+
+    <string name="status_enabled">已启用</string>
+    <string name="status_disabled">已停用</string>
+    <string name="status_allowed">已允许</string>
+    <string name="status_not_allowed">未允许</string>
+    <string name="status_calls_allowed">已允许</string>
+    <string name="status_calls_not_allowed">未允许</string>
+    <string name="fallback_status">Device Admin：%1$s\nAccessibility 保护：%2$s\n通话：%3$s</string>
+    <string name="button_enable_device_admin">启用 Device Admin</string>
+    <string name="button_open_accessibility">打开 Accessibility</string>
+    <string name="button_open_accessibility_service">打开 HomeCage Accessibility</string>
+    <string name="button_open_restricted_settings">打开受限设置</string>
+    <string name="button_allow_calls">允许通话</string>
+    <string name="restricted_settings_help">如果 Android 提示访问被拒绝，请打开受限设置，在 HomeCage 应用页面点三点菜单，选择 Allow restricted settings，然后返回这里再次打开 Accessibility。</string>
+    <string name="toast_open_settings_failed">无法打开 Android 设置</string>
+
+    <string name="server_url_hint">https://kid.example.local</string>
+    <string name="server_token_hint">服务器令牌（如已设置）</string>
+    <string name="sync_status_format">上次成功：%1$s\n状态：%2$s</string>
+    <string name="button_save_server">保存服务器</string>
+    <string name="button_sync_now">立即同步</string>
+    <string name="remote_server_info">同步成功后，服务器会覆盖本地应用列表。</string>
+
+    <string name="quick_call_editor_hint">妈妈 | +8613990000000</string>
+    <string name="button_save_quick_calls">保存快速拨号</string>
+    <string name="quick_calls_format_help">格式：每行一个联系人，例如：妈妈 | +8613990000000</string>
+
+    <string name="language_info">选择 HomeCage 界面语言。如果未选择语言，将在支持时使用系统语言。</string>
+    <string name="language_system">跟随系统</string>
+    <string name="button_save_language">保存语言</string>
+
+    <string name="accessibility_block_title">访问已阻止</string>
+    <string name="accessibility_block_message">此应用或系统界面不被允许。\n%1$s</string>
+    <string name="accessibility_return">返回</string>
+
+    <string name="sync_never">尚未同步</string>
+    <string name="sync_success_message">已同步：%1$d 个应用</string>
+    <string name="sync_error_default">同步错误</string>
+    <string name="device_admin_explanation">HomeCage 使用设备管理员权限，防止孩子在没有 PIN 的情况下卸载应用。</string>
+    <string name="toast_kiosk_enable_failed">无法启用 kiosk 模式</string>
+    <string name="toast_clear_device_owner_failed">无法停用 Device Owner</string>
+</resources>

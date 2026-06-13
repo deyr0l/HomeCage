@@ -1,0 +1,117 @@
+package com.homecage.kiosk.sync
+
+import com.homecage.kiosk.data.LaunchableApp
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStream
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
+
+data class RemoteKioskConfig(
+    val allowedPackages: Set<String>,
+    val pin: String?
+)
+
+class RemoteConfigClient(
+    private val rawServerUrl: String,
+    private val token: String
+) {
+    fun reportDeviceState(
+        deviceId: String,
+        installedApps: List<LaunchableApp>,
+        localAllowedPackages: Set<String>
+    ) {
+        val payload = JSONObject().apply {
+            put("deviceId", deviceId)
+            put("installedApps", JSONArray().apply {
+                installedApps.forEach { app ->
+                    put(JSONObject().apply {
+                        put("label", app.label)
+                        put("packageName", app.packageName)
+                        put("isSystem", app.isSystem)
+                    })
+                }
+            })
+            put("localAllowedPackages", JSONArray().apply {
+                localAllowedPackages.sorted().forEach { put(it) }
+            })
+        }
+        request(path = "/api/device-state", method = "POST", body = payload.toString())
+    }
+
+    fun fetchConfig(): RemoteKioskConfig {
+        val body = request(path = "/api/config", method = "GET")
+        val root = JSONObject(body)
+        val packages = root.optJSONArray("allowedPackages") ?: JSONArray()
+        val allowedPackages = buildSet {
+            for (index in 0 until packages.length()) {
+                val packageName = packages.optString(index).trim()
+                if (packageName.isNotEmpty()) add(packageName)
+            }
+        }
+        val pin = if (root.isNull("pin")) {
+            null
+        } else {
+            root.optString("pin", "").trim().ifEmpty { null }
+        }
+        if (pin != null && (pin.length !in 4..12 || pin.any { !it.isDigit() })) {
+            error("Server returned an invalid PIN")
+        }
+        return RemoteKioskConfig(
+            allowedPackages = allowedPackages,
+            pin = pin
+        )
+    }
+
+    private fun request(path: String, method: String, body: String? = null): String {
+        val connection = URL(buildUrl(path)).openConnection() as HttpURLConnection
+        connection.requestMethod = method
+        connection.connectTimeout = CONNECT_TIMEOUT_MS
+        connection.readTimeout = READ_TIMEOUT_MS
+        connection.setRequestProperty("Accept", "application/json")
+        if (token.isNotBlank()) {
+            connection.setRequestProperty("Authorization", "Bearer $token")
+        }
+        if (body != null) {
+            val bytes = body.toByteArray(Charsets.UTF_8)
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            connection.setRequestProperty("Content-Length", bytes.size.toString())
+            connection.outputStream.use { it.write(bytes) }
+        }
+
+        val responseCode = connection.responseCode
+        val responseBody = readStream(
+            if (responseCode in 200..299) connection.inputStream else connection.errorStream
+        )
+        connection.disconnect()
+
+        if (responseCode !in 200..299) {
+            error("Server responded HTTP $responseCode: $responseBody")
+        }
+        return responseBody
+    }
+
+    private fun buildUrl(path: String): String {
+        val base = rawServerUrl.trim()
+        require(base.isNotEmpty()) { "Server URL is empty" }
+        val withScheme = if (base.startsWith("http://") || base.startsWith("https://")) {
+            base
+        } else {
+            "https://$base"
+        }
+        return withScheme.trimEnd('/') + path
+    }
+
+    private fun readStream(stream: InputStream?): String {
+        if (stream == null) return ""
+        return BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { it.readText() }
+    }
+
+    private companion object {
+        const val CONNECT_TIMEOUT_MS = 8_000
+        const val READ_TIMEOUT_MS = 12_000
+    }
+}

@@ -1,0 +1,122 @@
+<resources>
+    <string name="app_name">HomeCage</string>
+    <string name="default_pin">1234</string>
+    <string name="accessibility_service_description">HomeCage блокирует запрещенные приложения и системные экраны, чтобы ребенок не мог выйти из родительского режима.</string>
+
+    <string name="action_admin">Админ</string>
+    <string name="action_cancel">Отмена</string>
+    <string name="action_open">Открыть</string>
+    <string name="action_disable">Снять</string>
+    <string name="action_yes">Да</string>
+    <string name="action_no">Нет</string>
+    <string name="action_back">Назад</string>
+    <string name="action_save">Сохранить</string>
+
+    <string name="section_quick_call">Быстрый вызов</string>
+    <string name="section_apps">Приложения</string>
+    <string name="section_allowed_apps">Разрешенные приложения</string>
+    <string name="section_protection_status">Статус защиты</string>
+    <string name="section_fallback_protection">Защита без Device Owner</string>
+    <string name="section_admin_pin">PIN администратора</string>
+    <string name="section_remote_management">Удаленное управление</string>
+    <string name="section_quick_calls">Быстрые вызовы</string>
+    <string name="section_language">Язык</string>
+    <string name="home_safe_mode_armed">Безопасный режим: ВКЛЮЧЕН</string>
+    <string name="home_section_quick_call">БЫСТРЫЙ ВЫЗОВ</string>
+    <string name="home_section_allowed_apps">РАЗРЕШЕННЫЕ ПРИЛОЖЕНИЯ</string>
+    <string name="home_apps_allowed_one">%1$d приложение разрешено</string>
+    <string name="home_apps_allowed_many">%1$d приложений разрешено</string>
+    <string name="home_quick_contacts_one">%1$d быстрый контакт</string>
+    <string name="home_quick_contacts_many">%1$d быстрых контактов</string>
+    <string name="home_no_quick_contacts">Быстрые контакты не настроены</string>
+    <string name="home_no_allowed_apps">Разрешенных приложений пока нет</string>
+    <string name="home_emergency_contact">Экстренный контакт</string>
+    <string name="home_allowed_app_label">Разрешенное приложение</string>
+    <string name="home_admin_content_description">Открыть админку</string>
+    <string name="home_quick_call_content_description">Позвонить %1$s</string>
+    <string name="home_allowed_app_content_description">Открыть %1$s</string>
+
+    <string name="pin_label">PIN</string>
+    <string name="admin_pin_title">PIN администратора</string>
+    <string name="current_pin_hint">Текущий PIN</string>
+    <string name="new_pin_hint">Новый PIN, 4-12 цифр</string>
+    <string name="button_change_pin">Сменить PIN</string>
+    <string name="error_wrong_pin">Неверный PIN</string>
+    <string name="error_enter_current_pin">Введите текущий PIN</string>
+    <string name="error_enter_4_12_digits">Введите 4-12 цифр</string>
+    <string name="default_pin_warning">Сейчас установлен PIN по умолчанию: 1234. Смените его.</string>
+    <string name="error_pin_check_failed">Ошибка проверки PIN: %1$s</string>
+    <string name="error_pin_change_failed">Ошибка смены PIN: %1$s</string>
+    <string name="error_pin_change_default">Не удалось изменить PIN</string>
+    <string name="toast_pin_changed">PIN изменен</string>
+
+    <string name="toast_call_permission_enabled">Разрешение на звонки включено</string>
+    <string name="toast_call_permission_missing">Без разрешения на звонки быстрый вызов не работает</string>
+    <string name="toast_allowed_list_saved">Список сохранен</string>
+    <string name="toast_kiosk_paused">Kiosk остановлен до возврата в приложение</string>
+    <string name="toast_protection_disabled">Защита снята. Можно удалить приложение.</string>
+    <string name="toast_open_failed">Не удалось открыть %1$s</string>
+    <string name="toast_launch_blocked">Запуск заблокирован Android</string>
+    <string name="toast_quick_calls_need_permission">Быстрые вызовы требуют разрешения на звонки в админке</string>
+    <string name="toast_call_failed">Не удалось начать звонок</string>
+    <string name="toast_server_saved">Настройки сервера сохранены</string>
+    <string name="toast_quick_calls_saved">Быстрые вызовы сохранены</string>
+    <string name="toast_language_saved">Язык сохранен</string>
+
+    <string name="empty_no_allowed_apps">Нет разрешенных приложений</string>
+    <string name="empty_no_launchable_apps">Не найдено приложений с launcher-иконкой.</string>
+    <string name="system_badge">system</string>
+    <string name="time_none">нет</string>
+
+    <string name="button_pause_kiosk_admin">Пауза kiosk для администратора</string>
+    <string name="button_disable_protection_remove">Снять защиту для удаления</string>
+    <string name="dialog_disable_protection_title">Снять защиту?</string>
+    <string name="dialog_disable_protection_message">Device Owner будет отключен, kiosk-режим остановится, и приложение можно будет удалить через настройки Android или ADB.</string>
+
+    <string name="dialog_quick_call_title">Быстрый вызов</string>
+    <string name="dialog_quick_call_message">Позвонить %1$s?</string>
+
+    <string name="policy_device_owner_active">Device Owner активен. HomeCage закреплен как домашний экран, Lock Task будет применяться к выбранным приложениям.</string>
+    <string name="policy_device_owner_inactive">Device Owner не активен. Без него Android позволит выбрать обычный лаунчер и выйти из приложения.\n\n%1$s\n%2$s</string>
+
+    <string name="status_enabled">включен</string>
+    <string name="status_disabled">выключен</string>
+    <string name="status_allowed">разрешено</string>
+    <string name="status_not_allowed">не разрешено</string>
+    <string name="status_calls_allowed">разрешены</string>
+    <string name="status_calls_not_allowed">не разрешены</string>
+    <string name="fallback_status">Device Admin: %1$s\nAccessibility защита: %2$s\nЗвонки: %3$s</string>
+    <string name="button_enable_device_admin">Включить Device Admin</string>
+    <string name="button_open_accessibility">Открыть Accessibility</string>
+    <string name="button_open_accessibility_service">Открыть Accessibility HomeCage</string>
+    <string name="button_open_restricted_settings">Открыть restricted settings</string>
+    <string name="button_allow_calls">Разрешить звонки</string>
+    <string name="restricted_settings_help">Если Android пишет, что доступ запрещен: откройте restricted settings, на странице HomeCage нажмите меню с тремя точками, выберите Allow restricted settings, затем вернитесь сюда и снова откройте Accessibility.</string>
+    <string name="toast_open_settings_failed">Не удалось открыть настройки Android</string>
+
+    <string name="server_url_hint">https://kid.example.local</string>
+    <string name="server_token_hint">Токен сервера, если задан</string>
+    <string name="sync_status_format">Последний успех: %1$s\nСтатус: %2$s</string>
+    <string name="button_save_server">Сохранить сервер</string>
+    <string name="button_sync_now">Синхронизировать сейчас</string>
+    <string name="remote_server_info">Сервер перезаписывает локальный список приложений при успешной синхронизации.</string>
+
+    <string name="quick_call_editor_hint">Мама | +79990000000</string>
+    <string name="button_save_quick_calls">Сохранить быстрые вызовы</string>
+    <string name="quick_calls_format_help">Формат: одна строка на контакт, например: Мама | +79990000000</string>
+
+    <string name="language_info">Выберите язык интерфейса HomeCage. Если язык не выбран, используется язык системы, когда он поддерживается.</string>
+    <string name="language_system">Как в системе</string>
+    <string name="button_save_language">Сохранить язык</string>
+
+    <string name="accessibility_block_title">Доступ заблокирован</string>
+    <string name="accessibility_block_message">Это приложение или системный экран не разрешен.\n%1$s</string>
+    <string name="accessibility_return">Вернуться</string>
+
+    <string name="sync_never">Синхронизации еще не было</string>
+    <string name="sync_success_message">Синхронизировано: %1$d приложений</string>
+    <string name="sync_error_default">Ошибка синхронизации</string>
+    <string name="device_admin_explanation">HomeCage использует администратор устройства, чтобы ребенок не мог удалить приложение без PIN.</string>
+    <string name="toast_kiosk_enable_failed">Не удалось включить kiosk-режим</string>
+    <string name="toast_clear_device_owner_failed">Не удалось снять Device Owner</string>
+</resources>

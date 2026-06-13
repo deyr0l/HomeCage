@@ -1,0 +1,659 @@
+from __future__ import annotations
+
+import base64
+import html
+import json
+import os
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+from urllib.parse import quote
+
+from litestar import Litestar, Request, get, post
+from litestar.response import Redirect, Response
+from litestar.status_codes import HTTP_401_UNAUTHORIZED
+
+
+def env_value(name: str, default: str) -> str:
+    return os.getenv(name) or default
+
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+DATA_DIR = Path(env_value("HOMECAGE_DATA_DIR", str(ROOT_DIR / "data")))
+CONFIG_PATH = DATA_DIR / "config.json"
+DEVICE_STATE_PATH = DATA_DIR / "device_state.json"
+ADMIN_TOKEN = env_value("HOMECAGE_ADMIN_TOKEN", "")
+DEFAULT_LANGUAGE = "en"
+SUPPORTED_LANGUAGES = ("en", "ru", "es", "zh-CN", "ja")
+LANGUAGE_LABELS = {
+    "en": "English",
+    "ru": "Русский",
+    "es": "Español",
+    "zh-CN": "简体中文",
+    "ja": "日本語",
+}
+MESSAGES = {
+    "en": {
+        "app_list_empty": "The phone has not reported its app list yet. Open HomeCage and run sync.",
+        "auth_disabled": "Disabled",
+        "auth_enabled": "Enabled",
+        "auth_note": "Token auth",
+        "clear_remote_pin": "Clear remote PIN command",
+        "config": "Config",
+        "extra_packages": "Additional package names",
+        "extra_packages_help": "Packages missing from the last phone report",
+        "language": "Language",
+        "last_phone_report": "Phone report",
+        "no_data": "no data",
+        "pin_label": "New PIN, 4-12 digits. Leave empty to keep current. Current state: {pin_status}.",
+        "pin_invalid": "PIN must contain 4-12 digits",
+        "pin_section": "App PIN",
+        "pin_set": "set",
+        "pin_unset": "not set",
+        "save_config": "Save config",
+        "system_badge": "system",
+        "title": "HomeCage Admin",
+        "allowed_apps": "Allowed apps",
+    },
+    "ru": {
+        "app_list_empty": "Телефон еще не прислал список приложений. Откройте HomeCage и нажмите синхронизацию.",
+        "auth_disabled": "Отключена",
+        "auth_enabled": "Включена",
+        "auth_note": "Token auth",
+        "clear_remote_pin": "Очистить remote PIN-команду",
+        "config": "Конфиг",
+        "extra_packages": "Дополнительные package names",
+        "extra_packages_help": "Пакеты, которых нет в последнем отчете телефона",
+        "language": "Язык",
+        "last_phone_report": "Отчет телефона",
+        "no_data": "нет данных",
+        "pin_label": "Новый PIN, 4-12 цифр. Оставьте пустым, чтобы не менять. Сейчас: {pin_status}.",
+        "pin_invalid": "PIN должен содержать 4-12 цифр",
+        "pin_section": "PIN приложения",
+        "pin_set": "задан",
+        "pin_unset": "не задан",
+        "save_config": "Сохранить конфиг",
+        "system_badge": "системное",
+        "title": "HomeCage Admin",
+        "allowed_apps": "Разрешенные приложения",
+    },
+    "es": {
+        "app_list_empty": "El teléfono aún no envió la lista de apps. Abre HomeCage y ejecuta la sincronización.",
+        "auth_disabled": "Desactivada",
+        "auth_enabled": "Activada",
+        "auth_note": "Autenticación por token",
+        "clear_remote_pin": "Borrar comando remoto de PIN",
+        "config": "Config",
+        "extra_packages": "Nombres de paquete adicionales",
+        "extra_packages_help": "Paquetes que no aparecen en el último informe del teléfono",
+        "language": "Idioma",
+        "last_phone_report": "Informe del teléfono",
+        "no_data": "sin datos",
+        "pin_label": "Nuevo PIN, 4-12 dígitos. Déjalo vacío para no cambiarlo. Estado actual: {pin_status}.",
+        "pin_invalid": "El PIN debe contener 4-12 dígitos",
+        "pin_section": "PIN de la app",
+        "pin_set": "configurado",
+        "pin_unset": "no configurado",
+        "save_config": "Guardar config",
+        "system_badge": "sistema",
+        "title": "HomeCage Admin",
+        "allowed_apps": "Apps permitidas",
+    },
+    "zh-CN": {
+        "app_list_empty": "手机尚未上报应用列表。请打开 HomeCage 并执行同步。",
+        "auth_disabled": "已停用",
+        "auth_enabled": "已启用",
+        "auth_note": "令牌认证",
+        "clear_remote_pin": "清除远程 PIN 命令",
+        "config": "配置",
+        "extra_packages": "额外包名",
+        "extra_packages_help": "上次手机报告中缺失的包名",
+        "language": "语言",
+        "last_phone_report": "手机报告",
+        "no_data": "无数据",
+        "pin_label": "新 PIN，4-12 位数字。留空则不更改。当前状态：{pin_status}。",
+        "pin_invalid": "PIN 必须包含 4-12 位数字",
+        "pin_section": "应用 PIN",
+        "pin_set": "已设置",
+        "pin_unset": "未设置",
+        "save_config": "保存配置",
+        "system_badge": "系统",
+        "title": "HomeCage Admin",
+        "allowed_apps": "允许的应用",
+    },
+    "ja": {
+        "app_list_empty": "電話からアプリ一覧がまだ送信されていません。HomeCage を開いて同期してください。",
+        "auth_disabled": "無効",
+        "auth_enabled": "有効",
+        "auth_note": "トークン認証",
+        "clear_remote_pin": "リモート PIN コマンドを消去",
+        "config": "設定",
+        "extra_packages": "追加パッケージ名",
+        "extra_packages_help": "最後の電話レポートにないパッケージ",
+        "language": "言語",
+        "last_phone_report": "電話レポート",
+        "no_data": "データなし",
+        "pin_label": "新しい PIN、4-12 桁。変更しない場合は空のままにします。現在: {pin_status}。",
+        "pin_invalid": "PIN は 4-12 桁の数字で入力してください",
+        "pin_section": "アプリ PIN",
+        "pin_set": "設定済み",
+        "pin_unset": "未設定",
+        "save_config": "設定を保存",
+        "system_badge": "システム",
+        "title": "HomeCage Admin",
+        "allowed_apps": "許可されたアプリ",
+    },
+}
+
+
+@dataclass(frozen=True)
+class Config:
+    allowed_packages: list[str]
+    pin: str | None
+    updated_at: str
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def normalize_language(raw_language: str | None) -> str:
+    if not raw_language:
+        return DEFAULT_LANGUAGE
+
+    language = raw_language.strip().replace("_", "-")
+    if not language:
+        return DEFAULT_LANGUAGE
+
+    lower_language = language.lower()
+    if lower_language in {"zh", "zh-cn", "zh-hans", "zh-hans-cn"}:
+        return "zh-CN"
+
+    base_language = lower_language.split("-", 1)[0]
+    if base_language in SUPPORTED_LANGUAGES:
+        return base_language
+    return DEFAULT_LANGUAGE
+
+
+def language_from_accept_language(header_value: str | None) -> str:
+    if not header_value:
+        return DEFAULT_LANGUAGE
+
+    for item in header_value.split(","):
+        language = normalize_language(item.split(";", 1)[0])
+        if language != DEFAULT_LANGUAGE or item.strip().lower().startswith("en"):
+            return language
+    return DEFAULT_LANGUAGE
+
+
+def resolve_language(request: Request) -> str:
+    query_language = normalize_language(request.query_params.get("lang"))
+    if request.query_params.get("lang"):
+        return query_language
+    return language_from_accept_language(request.headers.get("accept-language"))
+
+
+def message(language: str, key: str, **kwargs: Any) -> str:
+    template = MESSAGES.get(language, MESSAGES[DEFAULT_LANGUAGE]).get(
+        key,
+        MESSAGES[DEFAULT_LANGUAGE][key],
+    )
+    return template.format(**kwargs)
+
+
+def ensure_data_dir() -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def normalize_packages(packages: list[str]) -> list[str]:
+    cleaned = []
+    seen = set()
+    for package in packages:
+        package = package.strip()
+        if not package or package in seen:
+            continue
+        seen.add(package)
+        cleaned.append(package)
+    return sorted(cleaned)
+
+
+def read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
+    ensure_data_dir()
+    if not path.exists():
+        return default
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return default
+
+
+def write_json(path: Path, data: dict[str, Any]) -> None:
+    ensure_data_dir()
+    temporary_path = path.with_suffix(".tmp")
+    temporary_path.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    temporary_path.replace(path)
+
+
+def read_config() -> Config:
+    data = read_json(
+        CONFIG_PATH,
+        {
+            "allowedPackages": [],
+            "pin": None,
+            "updatedAt": utc_now(),
+        },
+    )
+    return Config(
+        allowed_packages=normalize_packages(data.get("allowedPackages", [])),
+        pin=data.get("pin") or None,
+        updated_at=data.get("updatedAt") or utc_now(),
+    )
+
+
+def write_config(allowed_packages: list[str], pin: str | None) -> Config:
+    config = Config(
+        allowed_packages=normalize_packages(allowed_packages),
+        pin=pin,
+        updated_at=utc_now(),
+    )
+    write_json(
+        CONFIG_PATH,
+        {
+            "allowedPackages": config.allowed_packages,
+            "pin": config.pin,
+            "updatedAt": config.updated_at,
+        },
+    )
+    return config
+
+
+def config_to_api(config: Config) -> dict[str, Any]:
+    return {
+        "allowedPackages": config.allowed_packages,
+        "pin": config.pin,
+        "updatedAt": config.updated_at,
+    }
+
+
+def unauthorized() -> Response:
+    return Response(
+        content="Unauthorized",
+        status_code=HTTP_401_UNAUTHORIZED,
+        headers={"WWW-Authenticate": 'Basic realm="HomeCage"'},
+    )
+
+
+def is_authorized(request: Request) -> bool:
+    if not ADMIN_TOKEN:
+        return True
+
+    authorization = request.headers.get("authorization", "")
+    if authorization.startswith("Bearer "):
+        return authorization.removeprefix("Bearer ").strip() == ADMIN_TOKEN
+
+    if authorization.startswith("Basic "):
+        encoded = authorization.removeprefix("Basic ").strip()
+        try:
+            decoded = base64.b64decode(encoded).decode("utf-8")
+        except (ValueError, UnicodeDecodeError):
+            return False
+        _, _, password = decoded.partition(":")
+        return password == ADMIN_TOKEN
+
+    return False
+
+
+def split_packages(raw: str) -> list[str]:
+    packages = []
+    for line in raw.replace(",", "\n").splitlines():
+        line = line.strip()
+        if line:
+            packages.append(line)
+    return packages
+
+
+def get_form_list(form: Any, key: str) -> list[str]:
+    for method_name in ("getall", "getlist"):
+        getter = getattr(form, method_name, None)
+        if callable(getter):
+            return [str(value) for value in getter(key)]
+
+    value = form.get(key)
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [str(value)]
+
+
+def read_device_state() -> dict[str, Any]:
+    return read_json(
+        DEVICE_STATE_PATH,
+        {
+            "deviceId": None,
+            "reportedAt": None,
+            "installedApps": [],
+            "localAllowedPackages": [],
+        },
+    )
+
+
+def render_admin_page(config: Config, device_state: dict[str, Any], language: str) -> str:
+    installed_apps = device_state.get("installedApps", [])
+    known_packages = {app.get("packageName") for app in installed_apps}
+    extra_packages = [pkg for pkg in config.allowed_packages if pkg not in known_packages]
+    pin_status = message(language, "pin_set") if config.pin else message(language, "pin_unset")
+
+    app_rows = []
+    for app in installed_apps:
+        package_name = str(app.get("packageName", ""))
+        if not package_name:
+            continue
+        label = html.escape(str(app.get("label") or package_name))
+        escaped_package = html.escape(package_name)
+        checked = "checked" if package_name in config.allowed_packages else ""
+        system_badge = (
+            f"<span class='badge'>{html.escape(message(language, 'system_badge'))}</span>"
+            if app.get("isSystem")
+            else ""
+        )
+        app_rows.append(
+            f"""
+            <label class="app-row">
+              <input type="checkbox" name="package" value="{escaped_package}" {checked}>
+              <span>
+                <strong>{label}</strong>
+                <small>{escaped_package} {system_badge}</small>
+              </span>
+            </label>
+            """
+        )
+
+    app_list = "\n".join(app_rows) or f"<p class='muted'>{html.escape(message(language, 'app_list_empty'))}</p>"
+    manual_packages = html.escape("\n".join(extra_packages))
+    auth_note = message(language, "auth_enabled") if ADMIN_TOKEN else message(language, "auth_disabled")
+    reported_at = html.escape(str(device_state.get("reportedAt") or message(language, "no_data")))
+    updated_at = html.escape(config.updated_at)
+    page_title = html.escape(message(language, "title"))
+    language_links = " ".join(
+        (
+            f"<strong>{html.escape(LANGUAGE_LABELS[code])}</strong>"
+            if code == language
+            else f"<a href='/?lang={quote(code)}'>{html.escape(LANGUAGE_LABELS[code])}</a>"
+        )
+        for code in SUPPORTED_LANGUAGES
+    )
+    form_action = f"/admin/config?lang={quote(language)}"
+    pin_label = html.escape(message(language, "pin_label", pin_status=pin_status))
+
+    return f"""<!doctype html>
+<html lang="{html.escape(language)}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{page_title}</title>
+  <style>
+    :root {{
+      color-scheme: light;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f8fafc;
+      color: #111827;
+    }}
+    body {{
+      margin: 0;
+      background: #f8fafc;
+    }}
+    header {{
+      background: #0f172a;
+      color: white;
+      padding: 20px min(6vw, 48px);
+    }}
+    main {{
+      width: min(980px, calc(100vw - 32px));
+      margin: 24px auto 48px;
+    }}
+    h1, h2 {{
+      margin: 0;
+      letter-spacing: 0;
+    }}
+    h1 {{
+      font-size: 28px;
+    }}
+    h2 {{
+      font-size: 18px;
+      margin-bottom: 14px;
+    }}
+    .panel {{
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }}
+    .meta {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+      color: #475569;
+      font-size: 14px;
+    }}
+    .language-switch {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+      font-size: 14px;
+    }}
+    .language-switch a,
+    .language-switch strong {{
+      color: white;
+      text-decoration: none;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 999px;
+      padding: 6px 10px;
+    }}
+    .language-switch strong {{
+      background: #2563eb;
+      border-color: #2563eb;
+    }}
+    .app-list {{
+      display: grid;
+      gap: 8px;
+      max-height: 52vh;
+      overflow: auto;
+      padding-right: 4px;
+    }}
+    .app-row {{
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+    }}
+    .app-row small {{
+      display: block;
+      color: #64748b;
+      margin-top: 2px;
+      word-break: break-word;
+    }}
+    .badge {{
+      display: inline-block;
+      color: #334155;
+      background: #e2e8f0;
+      border-radius: 999px;
+      padding: 1px 6px;
+      margin-left: 6px;
+    }}
+    textarea, input[type="text"], input[type="password"] {{
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font: inherit;
+    }}
+    textarea {{
+      min-height: 96px;
+      resize: vertical;
+    }}
+    label.field {{
+      display: grid;
+      gap: 8px;
+      color: #334155;
+      font-weight: 600;
+      margin: 12px 0;
+    }}
+    button {{
+      border: 0;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      font: inherit;
+      font-weight: 700;
+      padding: 12px 16px;
+      cursor: pointer;
+    }}
+    .muted {{
+      color: #64748b;
+    }}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{page_title}</h1>
+    <div class="meta">
+      <span>{html.escape(message(language, "config"))}: {updated_at}</span>
+      <span>{html.escape(message(language, "last_phone_report"))}: {reported_at}</span>
+      <span>{html.escape(message(language, "auth_note"))}: {html.escape(auth_note)}</span>
+    </div>
+    <nav class="language-switch" aria-label="{html.escape(message(language, "language"))}">
+      {language_links}
+    </nav>
+  </header>
+  <main>
+    <form method="post" action="{form_action}">
+      <section class="panel">
+        <h2>{html.escape(message(language, "allowed_apps"))}</h2>
+        <div class="app-list">{app_list}</div>
+      </section>
+      <section class="panel">
+        <h2>{html.escape(message(language, "extra_packages"))}</h2>
+        <label class="field">
+          {html.escape(message(language, "extra_packages_help"))}
+          <textarea name="manualPackages" spellcheck="false">{manual_packages}</textarea>
+        </label>
+      </section>
+      <section class="panel">
+        <h2>{html.escape(message(language, "pin_section"))}</h2>
+        <label class="field">
+          {pin_label}
+          <input type="password" name="pin" inputmode="numeric" pattern="[0-9]{{4,12}}">
+        </label>
+        <label>
+          <input type="checkbox" name="clearPin" value="1">
+          {html.escape(message(language, "clear_remote_pin"))}
+        </label>
+        <button type="submit">{html.escape(message(language, "save_config"))}</button>
+      </section>
+    </form>
+  </main>
+</body>
+</html>"""
+
+
+@get("/")
+async def admin(request: Request) -> Response:
+    if not is_authorized(request):
+        return unauthorized()
+    language = resolve_language(request)
+    return Response(
+        content=render_admin_page(read_config(), read_device_state(), language),
+        media_type="text/html",
+    )
+
+
+@post("/admin/config")
+async def update_config(request: Request) -> Redirect | Response:
+    if not is_authorized(request):
+        return unauthorized()
+
+    language = resolve_language(request)
+    form = await request.form()
+    selected_packages = get_form_list(form, "package")
+    manual_packages = split_packages(str(form.get("manualPackages") or ""))
+    current_config = read_config()
+    pin = str(form.get("pin") or "").strip() or current_config.pin
+    if form.get("clearPin") == "1":
+        pin = None
+    if pin is not None and (not pin.isdigit() or len(pin) not in range(4, 13)):
+        return Response(
+            content=message(language, "pin_invalid"),
+            status_code=400,
+            media_type="text/plain",
+        )
+
+    write_config(selected_packages + manual_packages, pin)
+    return Redirect(path=f"/?lang={quote(language)}")
+
+
+@get("/api/config")
+async def api_config(request: Request) -> Response:
+    if not is_authorized(request):
+        return unauthorized()
+    return Response(
+        content=json.dumps(config_to_api(read_config()), ensure_ascii=False),
+        media_type="application/json",
+    )
+
+
+@post("/api/device-state")
+async def api_device_state(request: Request) -> Response:
+    if not is_authorized(request):
+        return unauthorized()
+
+    payload = await request.json()
+    installed_apps = payload.get("installedApps") or []
+    normalized_apps = []
+    for app in installed_apps:
+        package_name = str(app.get("packageName") or "").strip()
+        if not package_name:
+            continue
+        normalized_apps.append(
+            {
+                "label": str(app.get("label") or package_name),
+                "packageName": package_name,
+                "isSystem": bool(app.get("isSystem")),
+            }
+        )
+
+    normalized_apps.sort(key=lambda app: (app["label"].casefold(), app["packageName"]))
+    state = {
+        "deviceId": payload.get("deviceId"),
+        "reportedAt": utc_now(),
+        "installedApps": normalized_apps,
+        "localAllowedPackages": normalize_packages(payload.get("localAllowedPackages") or []),
+    }
+    write_json(DEVICE_STATE_PATH, state)
+    return Response(content=json.dumps({"ok": True}), media_type="application/json")
+
+
+app = Litestar(route_handlers=[admin, update_config, api_config, api_device_state])
+
+
+def run() -> None:
+    import uvicorn
+
+    uvicorn.run(
+        "app.main:app",
+        host=env_value("HOMECAGE_HOST", "0.0.0.0"),
+        port=int(env_value("HOMECAGE_PORT", "8000")),
+        reload=env_value("HOMECAGE_RELOAD", "") == "1",
+    )

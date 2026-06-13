@@ -1,0 +1,122 @@
+<resources>
+    <string name="app_name">HomeCage</string>
+    <string name="default_pin">1234</string>
+    <string name="accessibility_service_description">HomeCage blocks disallowed apps and system screens so a child cannot leave parental mode.</string>
+
+    <string name="action_admin">Admin</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_open">Open</string>
+    <string name="action_disable">Disable</string>
+    <string name="action_yes">Yes</string>
+    <string name="action_no">No</string>
+    <string name="action_back">Back</string>
+    <string name="action_save">Save</string>
+
+    <string name="section_quick_call">Quick call</string>
+    <string name="section_apps">Apps</string>
+    <string name="section_allowed_apps">Allowed apps</string>
+    <string name="section_protection_status">Protection status</string>
+    <string name="section_fallback_protection">Protection without Device Owner</string>
+    <string name="section_admin_pin">Admin PIN</string>
+    <string name="section_remote_management">Remote management</string>
+    <string name="section_quick_calls">Quick calls</string>
+    <string name="section_language">Language</string>
+    <string name="home_safe_mode_armed">Safe mode: ARMED</string>
+    <string name="home_section_quick_call">QUICK CALL</string>
+    <string name="home_section_allowed_apps">ALLOWED APPS</string>
+    <string name="home_apps_allowed_one">%1$d app allowed</string>
+    <string name="home_apps_allowed_many">%1$d apps allowed</string>
+    <string name="home_quick_contacts_one">%1$d quick contact</string>
+    <string name="home_quick_contacts_many">%1$d quick contacts</string>
+    <string name="home_no_quick_contacts">No quick contacts configured</string>
+    <string name="home_no_allowed_apps">No allowed apps yet</string>
+    <string name="home_emergency_contact">Emergency contact</string>
+    <string name="home_allowed_app_label">Allowed app</string>
+    <string name="home_admin_content_description">Open Admin</string>
+    <string name="home_quick_call_content_description">Call %1$s</string>
+    <string name="home_allowed_app_content_description">Open %1$s</string>
+
+    <string name="pin_label">PIN</string>
+    <string name="admin_pin_title">Admin PIN</string>
+    <string name="current_pin_hint">Current PIN</string>
+    <string name="new_pin_hint">New PIN, 4-12 digits</string>
+    <string name="button_change_pin">Change PIN</string>
+    <string name="error_wrong_pin">Wrong PIN</string>
+    <string name="error_enter_current_pin">Enter current PIN</string>
+    <string name="error_enter_4_12_digits">Enter 4-12 digits</string>
+    <string name="default_pin_warning">Default PIN is currently set: 1234. Change it.</string>
+    <string name="error_pin_check_failed">PIN check error: %1$s</string>
+    <string name="error_pin_change_failed">PIN change error: %1$s</string>
+    <string name="error_pin_change_default">Could not change PIN</string>
+    <string name="toast_pin_changed">PIN changed</string>
+
+    <string name="toast_call_permission_enabled">Call permission enabled</string>
+    <string name="toast_call_permission_missing">Without call permission, quick call will not work</string>
+    <string name="toast_allowed_list_saved">List saved</string>
+    <string name="toast_kiosk_paused">Kiosk stopped until you return to the app</string>
+    <string name="toast_protection_disabled">Protection disabled. You can remove the app.</string>
+    <string name="toast_open_failed">Could not open %1$s</string>
+    <string name="toast_launch_blocked">Launch blocked by Android</string>
+    <string name="toast_quick_calls_need_permission">Quick calls require call permission in Admin</string>
+    <string name="toast_call_failed">Could not start call</string>
+    <string name="toast_server_saved">Server settings saved</string>
+    <string name="toast_quick_calls_saved">Quick calls saved</string>
+    <string name="toast_language_saved">Language saved</string>
+
+    <string name="empty_no_allowed_apps">No allowed apps</string>
+    <string name="empty_no_launchable_apps">No apps with a launcher icon found.</string>
+    <string name="system_badge">system</string>
+    <string name="time_none">none</string>
+
+    <string name="button_pause_kiosk_admin">Pause kiosk for admin</string>
+    <string name="button_disable_protection_remove">Disable protection for removal</string>
+    <string name="dialog_disable_protection_title">Disable protection?</string>
+    <string name="dialog_disable_protection_message">Device Owner will be disabled, kiosk mode will stop, and the app can be removed through Android settings or ADB.</string>
+
+    <string name="dialog_quick_call_title">Quick call</string>
+    <string name="dialog_quick_call_message">Call %1$s?</string>
+
+    <string name="policy_device_owner_active">Device Owner is active. HomeCage is pinned as the home screen, and Lock Task will be applied to selected apps.</string>
+    <string name="policy_device_owner_inactive">Device Owner is not active. Without it, Android can let the child choose the normal launcher and leave the app.\n\n%1$s\n%2$s</string>
+
+    <string name="status_enabled">enabled</string>
+    <string name="status_disabled">disabled</string>
+    <string name="status_allowed">allowed</string>
+    <string name="status_not_allowed">not allowed</string>
+    <string name="status_calls_allowed">allowed</string>
+    <string name="status_calls_not_allowed">not allowed</string>
+    <string name="fallback_status">Device Admin: %1$s\nAccessibility protection: %2$s\nCalls: %3$s</string>
+    <string name="button_enable_device_admin">Enable Device Admin</string>
+    <string name="button_open_accessibility">Open Accessibility</string>
+    <string name="button_open_accessibility_service">Open HomeCage Accessibility</string>
+    <string name="button_open_restricted_settings">Open restricted settings</string>
+    <string name="button_allow_calls">Allow calls</string>
+    <string name="restricted_settings_help">If Android says access was denied, open restricted settings, tap the three-dot menu on the HomeCage app page, choose Allow restricted settings, then return here and open Accessibility again.</string>
+    <string name="toast_open_settings_failed">Could not open Android settings</string>
+
+    <string name="server_url_hint">https://kid.example.local</string>
+    <string name="server_token_hint">Server token, if set</string>
+    <string name="sync_status_format">Last success: %1$s\nStatus: %2$s</string>
+    <string name="button_save_server">Save server</string>
+    <string name="button_sync_now">Sync now</string>
+    <string name="remote_server_info">The server overwrites the local app list after a successful sync.</string>
+
+    <string name="quick_call_editor_hint">Mom | +19990000000</string>
+    <string name="button_save_quick_calls">Save quick calls</string>
+    <string name="quick_calls_format_help">Format: one contact per line, for example: Mom | +19990000000</string>
+
+    <string name="language_info">Choose the HomeCage interface language. If no language is selected, the system language is used when supported.</string>
+    <string name="language_system">System default</string>
+    <string name="button_save_language">Save language</string>
+
+    <string name="accessibility_block_title">Access blocked</string>
+    <string name="accessibility_block_message">This app or system screen is not allowed.\n%1$s</string>
+    <string name="accessibility_return">Return</string>
+
+    <string name="sync_never">Sync has not run yet</string>
+    <string name="sync_success_message">Synced: %1$d apps</string>
+    <string name="sync_error_default">Sync error</string>
+    <string name="device_admin_explanation">HomeCage uses device administrator access so the child cannot remove the app without the PIN.</string>
+    <string name="toast_kiosk_enable_failed">Could not enable kiosk mode</string>
+    <string name="toast_clear_device_owner_failed">Could not disable Device Owner</string>
+</resources>

@@ -1,0 +1,176 @@
+# HomeCage
+
+HomeCage is an Android allowlist launcher for parent-managed devices. It shows a small home screen with approved apps and optional quick-call contacts. The admin area is protected by a PIN.
+
+Translations: [Русский](README_ru.md), [Español](README_es.md), [简体中文](README_zh-CN.md), [日本語](README_ja.md).
+
+## Status
+
+- Public app name: `HomeCage`
+- Android application id: `com.homecage.kiosk`
+- Minimum Android version: API 26
+- Default PIN: `1234`
+- Primary kiosk mode: Android Device Owner + Lock Task
+- Fallback protection: Device Admin + Accessibility, for consumer devices where Device Owner is hard to enable
+- Remote management: optional local/self-hosted server
+
+## Release Checklist
+
+Before sharing an APK outside your own test phone:
+
+- Build `app/build/outputs/apk/release/app-release.apk`, not the debug APK.
+- Sign release builds with a private release keystore from `keystore.properties`.
+- Verify that the release manifest does not contain `android:debuggable="true"`.
+- Keep `keystore.properties`, `*.jks`, `.env`, APK, AAB and server data out of Git.
+- Use HTTPS for the remote server in release builds. Cleartext HTTP is enabled only in the debug manifest.
+- Explain sensitive permissions to the person installing the app.
+- Test install, PIN change, quick call, remote sync, reboot, removal flow, and MIUI restricted settings on a real device.
+
+## Build
+
+Create a release keystore once:
+
+```bash
+keytool -genkeypair \
+  -v \
+  -keystore homecage-release.jks \
+  -alias homecage \
+  -keyalg RSA \
+  -keysize 4096 \
+  -validity 10000
+```
+
+Create `keystore.properties` from the example:
+
+```bash
+cp keystore.properties.example keystore.properties
+```
+
+Then edit `keystore.properties` with your private passwords and build:
+
+```bash
+./gradlew clean assembleRelease
+```
+
+Release APK:
+
+```text
+app/build/outputs/apk/release/app-release.apk
+```
+
+Debug APK for local development:
+
+```bash
+./gradlew assembleDebug
+```
+
+## Install And Enable Kiosk Mode
+
+Install the signed release APK:
+
+```bash
+adb install -r app/build/outputs/apk/release/app-release.apk
+```
+
+For the strongest kiosk mode, assign Device Owner on a clean device before adding accounts:
+
+```bash
+adb shell dpm set-device-owner com.homecage.kiosk/.admin.KioskDeviceAdminReceiver
+adb shell cmd package set-home-activity com.homecage.kiosk/.MainActivity
+```
+
+Open HomeCage, enter the default PIN `1234`, choose allowed apps, configure quick-call contacts if needed, then change the PIN.
+
+## Permissions
+
+HomeCage keeps the permission set intentionally small:
+
+| Permission or capability | Why it is needed |
+| --- | --- |
+| `INTERNET` | Optional sync with your self-hosted HomeCage server. |
+| `ACCESS_NETWORK_STATE` | Lets Android schedule sync only when a network is available. Required for JobScheduler network constraints. |
+| `RECEIVE_BOOT_COMPLETED` | Re-schedules background sync after reboot. |
+| `CALL_PHONE` | Optional quick-call buttons. The app does not read contacts. |
+| Device Admin / Device Owner | Prevents a child from removing protection without the admin PIN and enables Lock Task policies. |
+| Accessibility service | Fallback protection on devices where Device Owner is not active. It observes the current foreground package and returns to HomeCage when a blocked app, launcher, installer, or settings screen is opened. |
+| Package visibility query for launcher apps | Lets the admin screen list installed launchable apps. This is not `QUERY_ALL_PACKAGES`. |
+
+Not used: Usage Access (`PACKAGE_USAGE_STATS`), draw-over-other-apps (`SYSTEM_ALERT_WINDOW`), contacts, SMS, location, camera, microphone, notification listener, VPN, or `QUERY_ALL_PACKAGES`.
+
+## Accessibility And Restricted Settings
+
+On Android 13+ a sideloaded APK may be blocked from enabling Accessibility until restricted settings are allowed manually:
+
+1. Open Android Settings.
+2. Open Apps -> HomeCage.
+3. Open the three-dot menu.
+4. Tap `Allow restricted settings`.
+5. Return to HomeCage Admin and enable the HomeCage Accessibility service.
+
+Accessibility is only the fallback path. Device Owner + Lock Task is the preferred mode when the device can be provisioned cleanly.
+
+## Remote Server
+
+The app works without a server and keeps its local config. If a server is configured and reachable, server config overwrites the local allowlist.
+
+For release builds, use HTTPS:
+
+```text
+https://homecage.example.local
+```
+
+Server setup:
+
+```bash
+cd server
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+cp .env.example .env
+set -a
+. ./.env
+set +a
+homecage-server
+```
+
+Open the web admin:
+
+```text
+http://localhost:8000/
+```
+
+Supported web UI languages:
+
+```text
+/?lang=en
+/?lang=ru
+/?lang=es
+/?lang=zh-CN
+/?lang=ja
+```
+
+## Removal
+
+Normal removal flow:
+
+1. Open HomeCage.
+2. Enter the admin PIN.
+3. Tap `Disable protection for removal`.
+4. HomeCage stops kiosk mode, clears Device Owner when possible, and opens the Android app details screen.
+5. Uninstall the app from Android settings.
+
+ADB after protection is disabled:
+
+```bash
+adb uninstall com.homecage.kiosk
+```
+
+If the app is still Device Owner, Android will block normal uninstall. Use the in-app removal flow or factory reset the device.
+
+## Release Notes For Maintainers
+
+- The debug manifest allows cleartext traffic for local development.
+- The main/release manifest does not opt into cleartext traffic.
+- Release signing is required by the Gradle release tasks.
+- The repository intentionally ignores release keystores, local env files, generated APK/AAB files, and server data.
+- License: GPLv3. See [LICENSE](LICENSE).
