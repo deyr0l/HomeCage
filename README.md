@@ -4,7 +4,18 @@ HomeCage is an Android allowlist launcher for parent-managed devices. It shows a
 
 Translations: [Русский](README_ru.md), [Español](README_es.md), [简体中文](README_zh-CN.md), [日本語](README_ja.md).
 
-## Status
+![Android](https://img.shields.io/badge/Android-8.0%2B-brightgreen)
+![License](https://img.shields.io/badge/license-GPL--3.0-blue)
+![Kotlin](https://img.shields.io/badge/Kotlin-Android-purple)
+
+## Social restrictions!!!!!
+HomeCage is not spyware.
+HomeCage does not read messages, contacts, location, camera, microphone, or notifications.
+HomeCage is not designed for covert monitoring.
+HomeCage is a visible launcher restriction tool for parent-managed devices.
+
+
+## Tech info
 
 - Public app name: `HomeCage`
 - Android application id: `com.homecage.kiosk`
