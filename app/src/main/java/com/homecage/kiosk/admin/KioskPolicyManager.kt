@@ -10,6 +10,7 @@ import android.content.IntentFilter
 import android.os.Build
 import android.widget.Toast
 import com.homecage.kiosk.R
+import com.homecage.kiosk.data.KioskPreferences
 import com.homecage.kiosk.protection.KioskPackagePolicy
 
 class KioskPolicyManager(private val context: Context) {
@@ -51,12 +52,11 @@ class KioskPolicyManager(private val context: Context) {
         val lockTaskPackages = if (lockdownEnabled) {
             (setOf(context.packageName) + KioskPackagePolicy.allowedSystemPackages).toTypedArray()
         } else {
-            (
-                allowedPackages +
-                    context.packageName +
-                    KioskPackagePolicy.phonePackages +
-                    KioskPackagePolicy.allowedSystemPackages
-                ).toTypedArray()
+            val launchablePackages = allowedPackages - KioskPreferences(context).getManualPackages()
+            KioskPackagePolicy.lockTaskPackages(
+                homeCagePackage = context.packageName,
+                launchablePackages = launchablePackages
+            ).toTypedArray()
         }
         runCatching {
             devicePolicyManager.setLockTaskPackages(adminComponent, lockTaskPackages)

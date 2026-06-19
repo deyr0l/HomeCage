@@ -20,9 +20,15 @@ class ConfigSyncer(private val context: Context) {
         return nowMillis - preferences.getLastSyncAttemptAt() >= MIN_SYNC_INTERVAL_MS
     }
 
-    fun sync(): ConfigSyncResult {
+    fun sync(force: Boolean = false): ConfigSyncResult {
         val now = System.currentTimeMillis()
         preferences.markSyncAttempt(now)
+
+        if (!force && preferences.isAdminSessionUnlocked()) {
+            return ConfigSyncResult(success = true, message = "")
+        }
+
+        val revisionBeforeSync = preferences.getPolicyRevision()
 
         return runCatching {
             val appRepository = AppRepository(appContext)
@@ -45,7 +51,15 @@ class ConfigSyncer(private val context: Context) {
             )
 
             val remoteConfig = client.fetchConfig(deviceId, deviceName)
-            preferences.setAllowedPackages(remoteConfig.allowedPackages)
+
+            if (!force && (preferences.isAdminSessionUnlocked() ||
+                    preferences.getPolicyRevision() != revisionBeforeSync)) {
+                return@runCatching ConfigSyncResult(success = true, message = "")
+            }
+
+            val launchableNames = installedApps.map { it.packageName }.toSet()
+            val manualPackages = remoteConfig.allowedPackages.filter { it !in launchableNames }.toSet()
+            preferences.updatePolicy(remoteConfig.allowedPackages, manualPackages)
             preferences.setLockdownEnabled(remoteConfig.lockdownEnabled)
             remoteConfig.pin?.let { preferences.setPin(it) }
             KioskPolicyManager(appContext).applyDeviceOwnerPolicies(
