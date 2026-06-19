@@ -43,4 +43,13 @@ object KioskPackagePolicy {
         "com.coloros.launcher",
         "com.huawei.android.launcher"
     )
+
+    fun lockTaskPackages(
+        homeCagePackage: String,
+        launchablePackages: Set<String>
+    ): Set<String> =
+        (launchablePackages - blockedSystemPackages) +
+            homeCagePackage +
+            phonePackages +
+            allowedSystemPackages
 }

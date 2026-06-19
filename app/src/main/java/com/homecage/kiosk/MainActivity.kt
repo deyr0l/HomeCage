@@ -212,14 +212,16 @@ class MainActivity : Activity() {
         preferences.markAdminSessionUnlocked()
         refreshApps()
 
-        val selectedPackages = preferences.getAllowedPackages().toMutableSet()
+        val manualPackages = preferences.getManualPackages()
+        val selectedPackages = preferences.getLaunchableAllowedPackages().toMutableSet()
         val root = verticalRoot()
         root.addView(
             adminHeader(
                 onBack = { showLauncherScreen() },
                 onSave = {
-                    preferences.setAllowedPackages(selectedPackages)
-                    policyManager.applyDeviceOwnerPolicies(selectedPackages)
+                    val fullSet = selectedPackages + manualPackages
+                    preferences.updatePolicy(fullSet, manualPackages)
+                    policyManager.applyDeviceOwnerPolicies(fullSet)
                     Toast.makeText(this, R.string.toast_allowed_list_saved, Toast.LENGTH_SHORT).show()
                     showLauncherScreen()
                 }
@@ -318,12 +320,12 @@ class MainActivity : Activity() {
         syncRemoteConfig(showToast = false, refreshAfter = currentScreen == Screen.LAUNCHER)
     }
 
-    private fun syncRemoteConfig(showToast: Boolean, refreshAfter: Boolean) {
+    private fun syncRemoteConfig(showToast: Boolean, refreshAfter: Boolean, force: Boolean = false) {
         if (syncInFlight) return
         syncInFlight = true
 
         Thread {
-            val result = ConfigSyncer(applicationContext).sync()
+            val result = ConfigSyncer(applicationContext).sync(force = force)
             runOnUiThread {
                 syncInFlight = false
                 policyManager.applyDeviceOwnerPolicies(preferences.getAllowedPackages())
@@ -591,7 +593,7 @@ class MainActivity : Activity() {
             preferences.setServerUrl(serverUrl.text.toString())
             preferences.setServerToken(serverToken.text.toString())
             ConfigSyncScheduler.schedule(this)
-            syncRemoteConfig(showToast = true, refreshAfter = true)
+            syncRemoteConfig(showToast = true, refreshAfter = true, force = true)
         }
 
         val buttons = LinearLayout(this).apply {

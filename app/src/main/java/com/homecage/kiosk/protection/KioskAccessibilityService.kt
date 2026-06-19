@@ -13,6 +13,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -27,6 +28,7 @@ class KioskAccessibilityService : AccessibilityService() {
     private var overlayView: View? = null
     private var lastBlockedPackage: String? = null
     private var lastHomeReturnAt = 0L
+    private var watchdogAttempts = 0
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLocaleManager.wrap(newBase))
@@ -38,12 +40,19 @@ class KioskAccessibilityService : AccessibilityService() {
 
         val preferences = KioskPreferences(this)
         if (preferences.isAdminSessionUnlocked()) {
-            hideOverlay()
+            clearBlock()
+            return
+        }
+
+        if (packageName == this.packageName) {
+            clearBlock()
             return
         }
 
         if (isAllowedPackage(packageName, preferences)) {
-            hideOverlay()
+            if (lastBlockedPackage != null && verifyForegroundAllowed(preferences)) {
+                clearBlock()
+            }
             return
         }
 
@@ -53,7 +62,7 @@ class KioskAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
-        hideOverlay()
+        clearBlock()
         super.onDestroy()
     }
 
@@ -63,6 +72,29 @@ class KioskAccessibilityService : AccessibilityService() {
         if (packageName in KioskPackagePolicy.allowedSystemPackages) return true
         if (packageName in KioskPackagePolicy.phonePackages) return true
         if (packageName in preferences.getAllowedPackages()) return true
+        return false
+    }
+
+    private fun verifyForegroundAllowed(preferences: KioskPreferences): Boolean {
+        val appWindows = try {
+            windows?.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+        } catch (_: Exception) {
+            return false
+        }
+        if (appWindows.isNullOrEmpty()) return false
+
+        val target = appWindows.firstOrNull { it.isFocused }
+            ?: appWindows.firstOrNull { it.isActive }
+            ?: return false
+
+        val root = try { target.root } catch (_: Exception) { null } ?: return false
+        val pkg = root.packageName?.toString()
+        @Suppress("DEPRECATION") root.recycle()
+
+        if (pkg.isNullOrBlank()) return false
+        if (pkg == packageName) return true
+        if (pkg in KioskPackagePolicy.blockedSystemPackages) return false
+        if (pkg in preferences.getLaunchableAllowedPackages()) return true
         return false
     }
 
@@ -77,6 +109,23 @@ class KioskAccessibilityService : AccessibilityService() {
         if (shouldRefreshOverlay || now - lastHomeReturnAt >= HOME_RETURN_THROTTLE_MS) {
             lastHomeReturnAt = now
             returnHome()
+        }
+
+        handler.removeCallbacks(watchdogRunnable)
+        watchdogAttempts = 0
+        handler.postDelayed(watchdogRunnable, WATCHDOG_INTERVAL_MS)
+    }
+
+    private val watchdogRunnable = object : Runnable {
+        override fun run() {
+            if (lastBlockedPackage == null) return
+            if (++watchdogAttempts > MAX_WATCHDOG_ATTEMPTS) return
+            if (verifyForegroundAllowed(KioskPreferences(this@KioskAccessibilityService))) {
+                clearBlock()
+                return
+            }
+            returnHome()
+            handler.postDelayed(this, WATCHDOG_INTERVAL_MS)
         }
     }
 
@@ -129,7 +178,9 @@ class KioskAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun hideOverlay() {
+    private fun clearBlock() {
+        handler.removeCallbacks(watchdogRunnable)
+        watchdogAttempts = 0
         handler.post {
             removeOverlayNow()
             lastBlockedPackage = null
@@ -160,5 +211,7 @@ class KioskAccessibilityService : AccessibilityService() {
 
     private companion object {
         const val HOME_RETURN_THROTTLE_MS = 1_000L
+        const val WATCHDOG_INTERVAL_MS = 500L
+        const val MAX_WATCHDOG_ATTEMPTS = 5
     }
 }

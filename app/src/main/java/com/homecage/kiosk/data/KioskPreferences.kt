@@ -30,6 +30,29 @@ class KioskPreferences(private val context: Context) {
             .apply()
     }
 
+    fun getManualPackages(): Set<String> =
+        preferences.getStringSet(KEY_MANUAL_PACKAGES, emptySet()).orEmpty()
+
+    fun setManualPackages(packages: Set<String>) {
+        preferences.edit()
+            .putStringSet(KEY_MANUAL_PACKAGES, packages.toSet())
+            .apply()
+    }
+
+    fun getLaunchableAllowedPackages(): Set<String> =
+        getAllowedPackages() - getManualPackages()
+
+    fun getPolicyRevision(): Long =
+        preferences.getLong(KEY_POLICY_REVISION, 0L)
+
+    fun updatePolicy(allowedPackages: Set<String>, manualPackages: Set<String>) {
+        preferences.edit()
+            .putStringSet(KEY_ALLOWED_PACKAGES, allowedPackages.toSet())
+            .putStringSet(KEY_MANUAL_PACKAGES, manualPackages.toSet())
+            .putLong(KEY_POLICY_REVISION, getPolicyRevision() + 1)
+            .apply()
+    }
+
     fun getAppLanguageTag(): String =
         AppLocaleManager.getSelectedLanguageTag(context)
 
@@ -181,6 +204,8 @@ class KioskPreferences(private val context: Context) {
 
     private companion object {
         const val KEY_ALLOWED_PACKAGES = "allowed_packages"
+        const val KEY_MANUAL_PACKAGES = "manual_packages"
+        const val KEY_POLICY_REVISION = "policy_revision"
         const val KEY_PIN_SALT = "pin_salt"
         const val KEY_PIN_HASH = "pin_hash"
         const val KEY_IS_DEFAULT_PIN = "is_default_pin"
