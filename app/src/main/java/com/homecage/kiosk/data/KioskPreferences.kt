@@ -47,12 +47,32 @@ class KioskPreferences(private val context: Context) {
         preferences.getLong(KEY_POLICY_REVISION, 0L)
 
     fun updatePolicy(allowedPackages: Set<String>, manualPackages: Set<String>) {
-        preferences.edit()
-            .putStringSet(KEY_ALLOWED_PACKAGES, allowedPackages.toSet())
-            .putStringSet(KEY_MANUAL_PACKAGES, manualPackages.toSet())
-            .putLong(KEY_POLICY_REVISION, getPolicyRevision() + 1)
-            .apply()
+        synchronized(POLICY_LOCK) {
+            preferences.edit()
+                .putStringSet(KEY_ALLOWED_PACKAGES, allowedPackages.toSet())
+                .putStringSet(KEY_MANUAL_PACKAGES, manualPackages.toSet())
+                .putLong(KEY_POLICY_REVISION, getPolicyRevision() + 1)
+                .apply()
+        }
     }
+
+    fun updatePolicyIfRevisionUnchanged(
+        expectedRevision: Long,
+        allowedPackages: Set<String>,
+        manualPackages: Set<String>
+    ): Boolean =
+        synchronized(POLICY_LOCK) {
+            if (getPolicyRevision() != expectedRevision) {
+                false
+            } else {
+                preferences.edit()
+                    .putStringSet(KEY_ALLOWED_PACKAGES, allowedPackages.toSet())
+                    .putStringSet(KEY_MANUAL_PACKAGES, manualPackages.toSet())
+                    .putLong(KEY_POLICY_REVISION, expectedRevision + 1)
+                    .apply()
+                true
+            }
+        }
 
     fun getAppLanguageTag(): String =
         AppLocaleManager.getSelectedLanguageTag(context)
@@ -96,6 +116,17 @@ class KioskPreferences(private val context: Context) {
             .apply()
     }
 
+    fun getScheduleRules(): List<RestrictionScheduleRule> =
+        RestrictionScheduleRule.fromJson(
+            preferences.getString(KEY_SCHEDULE_RULES, "[]").orEmpty()
+        )
+
+    fun setScheduleRules(rules: List<RestrictionScheduleRule>) {
+        preferences.edit()
+            .putString(KEY_SCHEDULE_RULES, RestrictionScheduleRule.toJson(rules))
+            .apply()
+    }
+
     fun getServerUrl(): String =
         preferences.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL).orEmpty()
 
@@ -135,14 +166,37 @@ class KioskPreferences(private val context: Context) {
     fun getLastSyncMessage(): String =
         preferences.getString(KEY_LAST_SYNC_MESSAGE, context.getString(R.string.sync_never)).orEmpty()
 
-    fun isLockdownEnabled(): Boolean =
-        preferences.getBoolean(KEY_LOCKDOWN_ENABLED, false)
+    private fun getRestrictionMode(): RestrictionMode {
+        val storedMode = preferences.getString(KEY_RESTRICTION_MODE, null)
+        if (storedMode != null) return RestrictionMode.fromWireValue(storedMode)
+        return if (preferences.getBoolean(KEY_LOCKDOWN_ENABLED, false)) {
+            RestrictionMode.LOST
+        } else {
+            RestrictionMode.NONE
+        }
+    }
 
-    fun setLockdownEnabled(enabled: Boolean) {
+    fun getEffectiveRestrictionMode(nowMillis: Long = System.currentTimeMillis()): RestrictionMode =
+        RestrictionMode.strongest(
+            getRestrictionMode(),
+            RestrictionScheduleRule.effectiveModeAt(getScheduleRules(), nowMillis)
+        )
+
+    fun setRestrictionMode(mode: RestrictionMode) {
         preferences.edit()
-            .putBoolean(KEY_LOCKDOWN_ENABLED, enabled)
+            .putString(KEY_RESTRICTION_MODE, mode.wireValue)
+            .putBoolean(KEY_LOCKDOWN_ENABLED, mode == RestrictionMode.LOST)
             .apply()
     }
+
+    fun markQuickCallSession(durationMillis: Long = QUICK_CALL_SESSION_DURATION_MS) {
+        preferences.edit()
+            .putLong(KEY_QUICK_CALL_SESSION_UNTIL, System.currentTimeMillis() + durationMillis)
+            .apply()
+    }
+
+    fun isQuickCallSessionActive(nowMillis: Long = System.currentTimeMillis()): Boolean =
+        preferences.getLong(KEY_QUICK_CALL_SESSION_UNTIL, 0L) > nowMillis
 
     fun getHandledLocationRequestId(): Long =
         preferences.getLong(KEY_HANDLED_LOCATION_REQUEST_ID, 0L)
@@ -169,6 +223,19 @@ class KioskPreferences(private val context: Context) {
     fun markSyncFailure(message: String) {
         preferences.edit()
             .putString(KEY_LAST_SYNC_MESSAGE, message)
+            .apply()
+    }
+
+    fun getLastAppliedRemoteConfigUpdatedAt(): String =
+        preferences.getString(KEY_LAST_APPLIED_REMOTE_CONFIG_UPDATED_AT, "").orEmpty()
+
+    fun getLastRemoteConfigApplyStatus(): String =
+        preferences.getString(KEY_LAST_REMOTE_CONFIG_APPLY_STATUS, "").orEmpty()
+
+    fun markRemoteConfigApplyResult(updatedAt: String, status: String) {
+        preferences.edit()
+            .putString(KEY_LAST_APPLIED_REMOTE_CONFIG_UPDATED_AT, updatedAt)
+            .putString(KEY_LAST_REMOTE_CONFIG_APPLY_STATUS, status)
             .apply()
     }
 
@@ -244,15 +311,22 @@ class KioskPreferences(private val context: Context) {
         const val KEY_SERVER_TOKEN = "server_token"
         const val KEY_DEVICE_NAME = "device_name"
         const val KEY_QUICK_CALL_CONTACTS = "quick_call_contacts"
+        const val KEY_SCHEDULE_RULES = "schedule_rules"
         const val KEY_LAST_SYNC_ATTEMPT_AT = "last_sync_attempt_at"
         const val KEY_LAST_SYNC_SUCCESS_AT = "last_sync_success_at"
         const val KEY_LAST_SYNC_MESSAGE = "last_sync_message"
         const val KEY_ADMIN_SESSION_UNTIL = "admin_session_until"
         const val KEY_LOCKDOWN_ENABLED = "lockdown_enabled"
+        const val KEY_RESTRICTION_MODE = "restriction_mode"
+        const val KEY_QUICK_CALL_SESSION_UNTIL = "quick_call_session_until"
         const val KEY_HANDLED_LOCATION_REQUEST_ID = "handled_location_request_id"
+        const val KEY_LAST_APPLIED_REMOTE_CONFIG_UPDATED_AT = "last_applied_remote_config_updated_at"
+        const val KEY_LAST_REMOTE_CONFIG_APPLY_STATUS = "last_remote_config_apply_status"
         const val DEFAULT_SERVER_URL = ""
         const val ADMIN_SESSION_DURATION_MS = 5 * 60 * 1000L
+        const val QUICK_CALL_SESSION_DURATION_MS = 15 * 60 * 1000L
         const val PIN_HASH_ITERATIONS = 80_000
         const val PIN_HASH_BITS = 256
+        val POLICY_LOCK = Any()
     }
 }

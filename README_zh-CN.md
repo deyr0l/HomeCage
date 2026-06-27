@@ -62,12 +62,15 @@ Device Owner 通常需要在添加账号之前，在干净设备上设置。
 | `ACCESS_NETWORK_STATE` | 仅在网络可用时调度同步。 |
 | `RECEIVE_BOOT_COMPLETED` | 重启后重新调度同步。 |
 | `CALL_PHONE` | 快速拨号按钮。应用不会读取联系人。 |
+| `CAMERA` | HomeCage 内置手电筒按钮。只使用 torch mode，不采集相机画面。 |
 | `ACCESS_COARSE_LOCATION` / `ACCESS_FINE_LOCATION` | 服务器请求时可选上报位置，用于丢失设备流程。 |
+| `PACKAGE_USAGE_STATS` | consumer 模式的可选加固层；当 Accessibility 前台信息不完整时提供第二信号。 |
+| `SYSTEM_ALERT_WINDOW` | consumer 模式的可选加固层；允许拦截页使用普通 Android 悬浮窗。 |
 | Device Admin / Device Owner | 防止孩子无 PIN 移除保护，并启用 Lock Task。 |
 | Accessibility service | 备用保护：观察前台包名，如果打开未允许的屏幕则返回 HomeCage。 |
 | launcher 应用可见性查询 | 在管理界面列出可启动应用。不是 `QUERY_ALL_PACKAGES`。 |
 
-未使用：Usage Access (`PACKAGE_USAGE_STATS`)、悬浮窗 (`SYSTEM_ALERT_WINDOW`)、联系人、SMS、相机、麦克风、notification listener、VPN、`QUERY_ALL_PACKAGES`。
+未使用：联系人、SMS、相机画面采集、麦克风、notification listener、VPN、`QUERY_ALL_PACKAGES`。
 
 ## Accessibility 和 restricted settings
 

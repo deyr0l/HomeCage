@@ -1,6 +1,7 @@
 .gradle/
 build/
 local.properties
+sec.txt
 .env
 .env.*
 !.env.example

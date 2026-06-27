@@ -26,6 +26,7 @@ async def async_setup_entry(
     async_add_entities(
         [
             HomeCageAllowedAppsSensor(coordinator, entry),
+            HomeCageRestrictionModeSensor(coordinator, entry),
             HomeCageLocationStatusSensor(coordinator, entry),
             HomeCageLastPhoneReportSensor(coordinator, entry),
         ]
@@ -71,6 +72,27 @@ class HomeCageAllowedAppsSensor(HomeCageBaseSensor):
     def native_value(self) -> int:
         """Return allowed app count."""
         return len(self.config.get("allowedPackages") or [])
+
+
+class HomeCageRestrictionModeSensor(HomeCageBaseSensor):
+    """Remote restriction mode."""
+
+    _attr_icon = "mdi:shield-lock"
+    _attr_translation_key = "restriction_mode"
+
+    def __init__(self, coordinator: HomeCageDataUpdateCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "restriction_mode")
+
+    @property
+    def native_value(self) -> str:
+        """Return configured restriction mode."""
+        return str(self.config.get("restrictionMode") or "none")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return phone-reported effective mode."""
+        state_mode = self.device_state.get("restrictionMode")
+        return {"phoneRestrictionMode": state_mode} if state_mode else {}
 
 
 class HomeCageLocationStatusSensor(HomeCageBaseSensor):

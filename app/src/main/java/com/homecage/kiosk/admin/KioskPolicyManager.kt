@@ -8,9 +8,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
+import android.os.UserManager
 import android.widget.Toast
 import com.homecage.kiosk.R
 import com.homecage.kiosk.data.KioskPreferences
+import com.homecage.kiosk.data.RestrictionMode
 import com.homecage.kiosk.protection.KioskPackagePolicy
 
 class KioskPolicyManager(private val context: Context) {
@@ -44,22 +46,32 @@ class KioskPolicyManager(private val context: Context) {
     fun setHomeCommand(): String =
         "adb shell cmd package set-home-activity ${ComponentName(context, com.homecage.kiosk.MainActivity::class.java).flattenToShortString()}"
 
-    fun applyDeviceOwnerPolicies(allowedPackages: Set<String>, lockdownEnabled: Boolean = false) {
+    fun applyDeviceOwnerPolicies(
+        allowedPackages: Set<String>,
+        restrictionMode: RestrictionMode = RestrictionMode.NONE
+    ) {
         if (!isDeviceOwner()) return
 
         setHomeCageAsPersistentHome()
+        applyDeviceOwnerRestrictions()
 
-        val lockTaskPackages = if (lockdownEnabled) {
-            (setOf(context.packageName) + KioskPackagePolicy.allowedSystemPackages).toTypedArray()
-        } else {
-            val launchablePackages = allowedPackages - KioskPreferences(context).getManualPackages()
-            KioskPackagePolicy.lockTaskPackages(
-                homeCagePackage = context.packageName,
-                launchablePackages = launchablePackages
-            ).toTypedArray()
+        val lockTaskPackages = when (restrictionMode) {
+            RestrictionMode.LOST ->
+                setOf(context.packageName) + KioskPackagePolicy.allowedSystemPackages
+            RestrictionMode.PARENTAL ->
+                setOf(context.packageName) +
+                    KioskPackagePolicy.allowedSystemPackages +
+                    KioskPackagePolicy.phonePackages
+            RestrictionMode.NONE -> {
+                val launchablePackages = allowedPackages - KioskPreferences(context).getManualPackages()
+                KioskPackagePolicy.lockTaskPackages(
+                    homeCagePackage = context.packageName,
+                    launchablePackages = launchablePackages
+                )
+            }
         }
         runCatching {
-            devicePolicyManager.setLockTaskPackages(adminComponent, lockTaskPackages)
+            devicePolicyManager.setLockTaskPackages(adminComponent, lockTaskPackages.toTypedArray())
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             runCatching {
@@ -106,6 +118,7 @@ class KioskPolicyManager(private val context: Context) {
             return !isDeviceAdminActive()
         }
 
+        clearDeviceOwnerRestrictions()
         runCatching { devicePolicyManager.setLockTaskPackages(adminComponent, emptyArray<String>()) }
         clearPersistentHome()
         if (isDeviceAdminActive()) {
@@ -142,5 +155,30 @@ class KioskPolicyManager(private val context: Context) {
                 context.packageName
             )
         }
+    }
+
+    private fun applyDeviceOwnerRestrictions() {
+        deviceOwnerRestrictions.forEach { restriction ->
+            runCatching {
+                devicePolicyManager.addUserRestriction(adminComponent, restriction)
+            }
+        }
+    }
+
+    private fun clearDeviceOwnerRestrictions() {
+        deviceOwnerRestrictions.forEach { restriction ->
+            runCatching {
+                devicePolicyManager.clearUserRestriction(adminComponent, restriction)
+            }
+        }
+    }
+
+    private companion object {
+        val deviceOwnerRestrictions: List<String> = listOf(
+            UserManager.DISALLOW_UNINSTALL_APPS,
+            UserManager.DISALLOW_APPS_CONTROL,
+            UserManager.DISALLOW_SAFE_BOOT,
+            UserManager.DISALLOW_FACTORY_RESET
+        )
     }
 }

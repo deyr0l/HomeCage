@@ -1,14 +1,20 @@
 package com.homecage.kiosk.protection
 
 import android.accessibilityservice.AccessibilityService
+import android.app.AppOpsManager
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -20,6 +26,7 @@ import android.widget.TextView
 import com.homecage.kiosk.MainActivity
 import com.homecage.kiosk.R
 import com.homecage.kiosk.data.KioskPreferences
+import com.homecage.kiosk.data.RestrictionMode
 import com.homecage.kiosk.locale.AppLocaleManager
 import kotlin.math.roundToInt
 
@@ -39,13 +46,35 @@ class KioskAccessibilityService : AccessibilityService() {
         if (packageName.isBlank()) return
 
         val preferences = KioskPreferences(this)
-        if (preferences.isAdminSessionUnlocked()) {
+        if (
+            preferences.isAdminSessionUnlocked() &&
+            KioskPackagePolicy.isAdminSetupPackage(packageName)
+        ) {
             clearBlock()
             return
         }
 
         if (packageName == this.packageName) {
             clearBlock()
+            return
+        }
+
+        if (KioskPackagePolicy.isBlockedSystemSurface(packageName, event.className?.toString())) {
+            blockPackage(packageName)
+            return
+        }
+
+        if (packageName in KioskPackagePolicy.blockedSystemPackages) {
+            blockPackage(packageName)
+            return
+        }
+
+        if (isTransientPackage(packageName, preferences)) {
+            if (verifyForegroundAllowed(preferences)) {
+                if (lastBlockedPackage != null) clearBlock()
+                return
+            }
+            blockPackage(packageName)
             return
         }
 
@@ -68,14 +97,11 @@ class KioskAccessibilityService : AccessibilityService() {
 
     private fun isAllowedPackage(packageName: String, preferences: KioskPreferences): Boolean {
         if (packageName == this.packageName) return true
-        if (preferences.isLockdownEnabled()) {
-            return packageName in KioskPackagePolicy.allowedSystemPackages
-        }
-        if (packageName in KioskPackagePolicy.blockedSystemPackages) return false
-        if (packageName in KioskPackagePolicy.allowedSystemPackages) return true
-        if (packageName in KioskPackagePolicy.phonePackages) return true
-        if (packageName in preferences.getAllowedPackages()) return true
-        return false
+        return isAllowedForegroundPackage(
+            packageName = packageName,
+            className = null,
+            preferences = preferences
+        )
     }
 
     private fun verifyForegroundAllowed(preferences: KioskPreferences): Boolean {
@@ -84,22 +110,126 @@ class KioskAccessibilityService : AccessibilityService() {
         } catch (_: Exception) {
             return false
         }
-        if (appWindows.isNullOrEmpty()) return false
 
-        val target = appWindows.firstOrNull { it.isFocused }
-            ?: appWindows.firstOrNull { it.isActive }
-            ?: return false
+        var hasAllowedAnchor = false
+        if (!appWindows.isNullOrEmpty()) {
+            for (window in appWindows) {
+                val root = try { window.root } catch (_: Exception) { null } ?: continue
+                val pkg = root.packageName?.toString()
+                val className = root.className?.toString()
+                @Suppress("DEPRECATION") root.recycle()
 
-        val root = try { target.root } catch (_: Exception) { null } ?: return false
-        val pkg = root.packageName?.toString()
-        @Suppress("DEPRECATION") root.recycle()
+                if (pkg.isNullOrBlank()) continue
+                if (window.isFocused || window.isActive) {
+                    if (KioskPackagePolicy.isBlockedSystemSurface(pkg, className)) return false
+                    if (pkg in KioskPackagePolicy.blockedSystemPackages) return false
+                }
+                if (
+                    isAllowedForegroundPackage(
+                        packageName = pkg,
+                        className = className,
+                        preferences = preferences
+                    ) &&
+                    !isTransientPackage(pkg, preferences)
+                ) {
+                    hasAllowedAnchor = true
+                }
+            }
+        }
+        if (hasAllowedAnchor) return true
 
-        if (pkg.isNullOrBlank()) return false
-        if (pkg == packageName) return true
-        if (pkg in KioskPackagePolicy.blockedSystemPackages) return false
-        if (pkg in preferences.getLaunchableAllowedPackages()) return true
+        val usagePackage = usageStatsForegroundPackage() ?: return false
+        return isAllowedForegroundPackage(
+            packageName = usagePackage,
+            className = null,
+            preferences = preferences
+        ) && !isTransientPackage(usagePackage, preferences)
+    }
+
+    private fun isAllowedForegroundPackage(
+        packageName: String,
+        className: String?,
+        preferences: KioskPreferences
+    ): Boolean {
+        if (packageName == this.packageName) return true
+        if (KioskPackagePolicy.isBlockedSystemSurface(packageName, className)) return false
+        val restrictionMode = preferences.getEffectiveRestrictionMode()
+        if (restrictionMode == RestrictionMode.LOST) {
+            return packageName in KioskPackagePolicy.allowedSystemPackages
+        }
+        if (packageName in KioskPackagePolicy.blockedSystemPackages) return false
+        if (packageName in KioskPackagePolicy.allowedSystemPackages) return true
+        if (packageName in KioskPackagePolicy.phonePackages) {
+            return preferences.isQuickCallSessionActive() ||
+                (
+                    restrictionMode == RestrictionMode.NONE &&
+                        packageName in preferences.getLaunchableAllowedPackages()
+                    )
+        }
+        if (restrictionMode == RestrictionMode.PARENTAL) return false
+        if (packageName in preferences.getLaunchableAllowedPackages()) return true
         return false
     }
+
+    private fun isTransientPackage(packageName: String, preferences: KioskPreferences): Boolean =
+        packageName in preferences.getManualPackages() ||
+            KioskPackagePolicy.isTransientSupportPackage(packageName) ||
+            isDefaultInputMethodPackage(packageName)
+
+    private fun isDefaultInputMethodPackage(packageName: String): Boolean {
+        val rawInputMethod = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.DEFAULT_INPUT_METHOD
+        ).orEmpty()
+        val component = ComponentName.unflattenFromString(rawInputMethod)
+        return component?.packageName == packageName
+    }
+
+    @Suppress("DEPRECATION")
+    private fun usageStatsForegroundPackage(): String? {
+        if (!hasUsageAccess()) return null
+        val usageStatsManager = getSystemService(UsageStatsManager::class.java) ?: return null
+        val endTime = System.currentTimeMillis()
+        val events = runCatching {
+            usageStatsManager.queryEvents(endTime - USAGE_LOOKBACK_MS, endTime)
+        }.getOrNull() ?: return null
+
+        val event = UsageEvents.Event()
+        var latestPackage: String? = null
+        var latestTime = 0L
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event)
+            val isForegroundEvent =
+                event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND ||
+                    (
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                            event.eventType == UsageEvents.Event.ACTIVITY_RESUMED
+                        )
+            if (isForegroundEvent && event.timeStamp >= latestTime) {
+                latestPackage = event.packageName
+                latestTime = event.timeStamp
+            }
+        }
+        return latestPackage
+    }
+
+    private fun hasUsageAccess(): Boolean {
+        val appOpsManager = getSystemService(AppOpsManager::class.java) ?: return false
+        @Suppress("DEPRECATION")
+        val mode = appOpsManager.checkOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS,
+            applicationInfo.uid,
+            packageName
+        )
+        return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    private fun overlayWindowType(): Int =
+        if (Settings.canDrawOverlays(this)) {
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        } else {
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+        }
 
     private fun blockPackage(packageName: String) {
         val now = SystemClock.elapsedRealtime()
@@ -171,7 +301,7 @@ class KioskAccessibilityService : AccessibilityService() {
                 val params = WindowManager.LayoutParams(
                     WindowManager.LayoutParams.MATCH_PARENT,
                     WindowManager.LayoutParams.MATCH_PARENT,
-                    WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                    overlayWindowType(),
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                     android.graphics.PixelFormat.TRANSLUCENT
                 )
@@ -216,5 +346,6 @@ class KioskAccessibilityService : AccessibilityService() {
         const val HOME_RETURN_THROTTLE_MS = 1_000L
         const val WATCHDOG_INTERVAL_MS = 500L
         const val MAX_WATCHDOG_ATTEMPTS = 5
+        const val USAGE_LOOKBACK_MS = 30_000L
     }
 }

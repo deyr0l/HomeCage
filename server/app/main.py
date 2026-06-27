@@ -4,6 +4,7 @@ import base64
 import html
 import json
 import os
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,7 +28,32 @@ DEVICES_PATH = DATA_DIR / "devices.json"
 ADMIN_TOKEN = env_value("HOMECAGE_ADMIN_TOKEN", "")
 LEGACY_DEVICE_ID = "legacy"
 DEFAULT_LANGUAGE = "en"
+RESTRICTION_NONE = "none"
+RESTRICTION_PARENTAL = "parental"
+RESTRICTION_LOST = "lost"
+SUPPORTED_RESTRICTION_MODES = (RESTRICTION_NONE, RESTRICTION_PARENTAL, RESTRICTION_LOST)
 SUPPORTED_LANGUAGES = ("en", "ru", "es", "zh-CN", "ja")
+DATA_LOCK = threading.RLock()
+DAY_ALIASES = {
+    "mon": 1,
+    "monday": 1,
+    "tue": 2,
+    "tues": 2,
+    "tuesday": 2,
+    "wed": 3,
+    "wednesday": 3,
+    "thu": 4,
+    "thur": 4,
+    "thurs": 4,
+    "thursday": 4,
+    "fri": 5,
+    "friday": 5,
+    "sat": 6,
+    "saturday": 6,
+    "sun": 7,
+    "sunday": 7,
+}
+DAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 LANGUAGE_LABELS = {
     "en": "English",
     "ru": "Русский",
@@ -57,9 +83,10 @@ MESSAGES = {
         "location_reported": "Request #{request_id} answered at {reported_at}.",
         "location_request": "Location request",
         "location_status": "Location status: {status}",
-        "lockdown_enabled": "Enable lost mode",
-        "lockdown_help": "When lost mode is enabled, the phone blocks apps, quick calls, launchers, installers, and settings until the server turns it off.",
-        "lockdown_section": "Lost mode",
+        "config_apply_pending": "Waiting for this phone to apply config from {updated_at}.",
+        "config_apply_skipped": "Phone skipped app-list update because local settings changed during sync. Restriction mode was still applied.",
+        "config_apply_status": "Phone sync",
+        "config_apply_success": "Phone applied config from {updated_at}.",
         "no_data": "no data",
         "no_devices": "No phones have reported to this server yet. Configure the server in HomeCage and run sync on the phone.",
         "pin_label": "New PIN, 4-12 digits. Leave empty to keep current. Current state: {pin_status}.",
@@ -67,11 +94,21 @@ MESSAGES = {
         "pin_section": "App PIN",
         "pin_set": "set",
         "pin_unset": "not set",
+        "protection_health": "Protection health",
+        "protection_health_missing": "not reported",
+        "protection_health_summary": "{enabled}/{total} layers enabled",
         "save_config": "Save config",
         "system_badge": "system",
         "title": "HomeCage Admin",
         "allowed_apps": "Allowed apps",
         "request_location": "Request location",
+        "restriction_help": "Parent restriction blocks apps but keeps quick calls available. Lost phone blocks both apps and quick calls.",
+        "restriction_lost": "Lost phone: full block",
+        "restriction_none": "No remote block",
+        "restriction_parental": "Parent restriction: allow quick calls",
+        "restriction_section": "Remote block mode",
+        "schedule_help": "One rule per line: Mon-Fri 22:00-07:00 parental. Supported days: All, Weekdays, Weekends, Mon-Sun. Modes: parental or lost.",
+        "schedule_section": "Scheduled block",
     },
     "ru": {
         "app_list_empty": "Телефон еще не прислал список приложений. Откройте HomeCage и нажмите синхронизацию.",
@@ -94,9 +131,10 @@ MESSAGES = {
         "location_reported": "Запрос #{request_id} обработан в {reported_at}.",
         "location_request": "Запрос локации",
         "location_status": "Статус локации: {status}",
-        "lockdown_enabled": "Включить режим потерянного телефона",
-        "lockdown_help": "Когда режим включен, телефон блокирует приложения, быстрые вызовы, лаунчеры, установщики и настройки, пока сервер не выключит режим.",
-        "lockdown_section": "Режим потери",
+        "config_apply_pending": "Ждем, пока телефон применит конфиг от {updated_at}.",
+        "config_apply_skipped": "Телефон пропустил обновление списка приложений: локальные настройки изменились во время синхронизации. Режим ограничения все равно применен.",
+        "config_apply_status": "Синхронизация телефона",
+        "config_apply_success": "Телефон применил конфиг от {updated_at}.",
         "no_data": "нет данных",
         "no_devices": "Телефоны еще не присылали отчеты на этот сервер. Укажите сервер в HomeCage и запустите синхронизацию на телефоне.",
         "pin_label": "Новый PIN, 4-12 цифр. Оставьте пустым, чтобы не менять. Сейчас: {pin_status}.",
@@ -104,11 +142,21 @@ MESSAGES = {
         "pin_section": "PIN приложения",
         "pin_set": "задан",
         "pin_unset": "не задан",
+        "protection_health": "Состояние защиты",
+        "protection_health_missing": "не передавалось",
+        "protection_health_summary": "{enabled}/{total} слоев включено",
         "save_config": "Сохранить конфиг",
         "system_badge": "системное",
         "title": "HomeCage Admin",
         "allowed_apps": "Разрешенные приложения",
         "request_location": "Запросить локацию",
+        "restriction_help": "Родительское ограничение блокирует приложения, но оставляет быстрые звонки. Потерянный телефон блокирует и приложения, и быстрые звонки.",
+        "restriction_lost": "Телефон утерян: полная блокировка",
+        "restriction_none": "Без удаленной блокировки",
+        "restriction_parental": "Родительское ограничение: быстрые звонки доступны",
+        "restriction_section": "Режим удаленной блокировки",
+        "schedule_help": "Одно правило на строку: Mon-Fri 22:00-07:00 parental. Дни: All, Weekdays, Weekends, Mon-Sun. Режимы: parental или lost.",
+        "schedule_section": "Блокировка по расписанию",
     },
     "es": {
         "app_list_empty": "El teléfono aún no envió la lista de apps. Abre HomeCage y ejecuta la sincronización.",
@@ -131,9 +179,10 @@ MESSAGES = {
         "location_reported": "La solicitud #{request_id} fue respondida a las {reported_at}.",
         "location_request": "Solicitud de ubicación",
         "location_status": "Estado de ubicación: {status}",
-        "lockdown_enabled": "Activar modo perdido",
-        "lockdown_help": "Cuando el modo perdido está activo, el teléfono bloquea apps, llamadas rápidas, launchers, instaladores y ajustes hasta que el servidor lo desactive.",
-        "lockdown_section": "Modo perdido",
+        "config_apply_pending": "Esperando a que este teléfono aplique la config de {updated_at}.",
+        "config_apply_skipped": "El teléfono omitió la lista de apps porque los ajustes locales cambiaron durante la sincronización. El modo de restricción sí se aplicó.",
+        "config_apply_status": "Sincronización del teléfono",
+        "config_apply_success": "El teléfono aplicó la config de {updated_at}.",
         "no_data": "sin datos",
         "no_devices": "Ningún teléfono informó a este servidor todavía. Configura el servidor en HomeCage y ejecuta la sincronización en el teléfono.",
         "pin_label": "Nuevo PIN, 4-12 dígitos. Déjalo vacío para no cambiarlo. Estado actual: {pin_status}.",
@@ -141,11 +190,21 @@ MESSAGES = {
         "pin_section": "PIN de la app",
         "pin_set": "configurado",
         "pin_unset": "no configurado",
+        "protection_health": "Estado de protección",
+        "protection_health_missing": "sin reporte",
+        "protection_health_summary": "{enabled}/{total} capas activas",
         "save_config": "Guardar config",
         "system_badge": "sistema",
         "title": "HomeCage Admin",
         "allowed_apps": "Apps permitidas",
         "request_location": "Solicitar ubicación",
+        "restriction_help": "La restricción parental bloquea apps pero mantiene llamadas rápidas. Modo perdido bloquea apps y llamadas rápidas.",
+        "restriction_lost": "Teléfono perdido: bloqueo total",
+        "restriction_none": "Sin bloqueo remoto",
+        "restriction_parental": "Restricción parental: llamadas rápidas permitidas",
+        "restriction_section": "Modo de bloqueo remoto",
+        "schedule_help": "Una regla por línea: Mon-Fri 22:00-07:00 parental. Días: All, Weekdays, Weekends, Mon-Sun. Modos: parental o lost.",
+        "schedule_section": "Bloqueo programado",
     },
     "zh-CN": {
         "app_list_empty": "手机尚未上报应用列表。请打开 HomeCage 并执行同步。",
@@ -168,9 +227,10 @@ MESSAGES = {
         "location_reported": "请求 #{request_id} 已在 {reported_at} 响应。",
         "location_request": "位置请求",
         "location_status": "位置状态：{status}",
-        "lockdown_enabled": "启用丢失模式",
-        "lockdown_help": "启用丢失模式后，手机会阻止应用、快速拨号、启动器、安装器和设置，直到服务器关闭该模式。",
-        "lockdown_section": "丢失模式",
+        "config_apply_pending": "正在等待此手机应用 {updated_at} 的配置。",
+        "config_apply_skipped": "手机跳过了应用列表更新，因为同步时本地设置发生了变化。限制模式仍已应用。",
+        "config_apply_status": "手机同步",
+        "config_apply_success": "手机已应用 {updated_at} 的配置。",
         "no_data": "无数据",
         "no_devices": "还没有手机向此服务器上报。请在 HomeCage 中配置服务器并在手机上执行同步。",
         "pin_label": "新 PIN，4-12 位数字。留空则不更改。当前状态：{pin_status}。",
@@ -178,11 +238,21 @@ MESSAGES = {
         "pin_section": "应用 PIN",
         "pin_set": "已设置",
         "pin_unset": "未设置",
+        "protection_health": "保护状态",
+        "protection_health_missing": "未上报",
+        "protection_health_summary": "{enabled}/{total} 层已启用",
         "save_config": "保存配置",
         "system_badge": "系统",
         "title": "HomeCage Admin",
         "allowed_apps": "允许的应用",
         "request_location": "请求位置",
+        "restriction_help": "家长限制会阻止应用，但保留快速拨号。丢失模式会同时阻止应用和快速拨号。",
+        "restriction_lost": "手机丢失：完全阻止",
+        "restriction_none": "无远程阻止",
+        "restriction_parental": "家长限制：允许快速拨号",
+        "restriction_section": "远程阻止模式",
+        "schedule_help": "每行一条规则：Mon-Fri 22:00-07:00 parental。日期：All、Weekdays、Weekends、Mon-Sun。模式：parental 或 lost。",
+        "schedule_section": "定时阻止",
     },
     "ja": {
         "app_list_empty": "電話からアプリ一覧がまだ送信されていません。HomeCage を開いて同期してください。",
@@ -205,9 +275,10 @@ MESSAGES = {
         "location_reported": "リクエスト #{request_id} は {reported_at} に応答されました。",
         "location_request": "位置情報リクエスト",
         "location_status": "位置情報ステータス: {status}",
-        "lockdown_enabled": "紛失モードを有効化",
-        "lockdown_help": "紛失モードが有効な間、サーバーが解除するまでアプリ、クイック通話、ランチャー、インストーラー、設定をブロックします。",
-        "lockdown_section": "紛失モード",
+        "config_apply_pending": "この端末が {updated_at} の設定を適用するのを待っています。",
+        "config_apply_skipped": "同期中にローカル設定が変更されたため、端末はアプリ一覧の更新をスキップしました。制限モードは適用済みです。",
+        "config_apply_status": "端末同期",
+        "config_apply_success": "端末は {updated_at} の設定を適用しました。",
         "no_data": "データなし",
         "no_devices": "このサーバーにはまだ電話からのレポートがありません。HomeCage でサーバーを設定し、電話で同期してください。",
         "pin_label": "新しい PIN、4-12 桁。変更しない場合は空のままにします。現在: {pin_status}。",
@@ -215,11 +286,21 @@ MESSAGES = {
         "pin_section": "アプリ PIN",
         "pin_set": "設定済み",
         "pin_unset": "未設定",
+        "protection_health": "保護状態",
+        "protection_health_missing": "未報告",
+        "protection_health_summary": "{enabled}/{total} レイヤー有効",
         "save_config": "設定を保存",
         "system_badge": "システム",
         "title": "HomeCage Admin",
         "allowed_apps": "許可されたアプリ",
         "request_location": "位置情報をリクエスト",
+        "restriction_help": "保護者制限はアプリをブロックし、クイック通話は許可します。紛失モードはアプリとクイック通話の両方をブロックします。",
+        "restriction_lost": "紛失端末: 完全ブロック",
+        "restriction_none": "リモートブロックなし",
+        "restriction_parental": "保護者制限: クイック通話を許可",
+        "restriction_section": "リモートブロックモード",
+        "schedule_help": "1 行に 1 ルール: Mon-Fri 22:00-07:00 parental。曜日: All, Weekdays, Weekends, Mon-Sun。モード: parental または lost。",
+        "schedule_section": "スケジュールブロック",
     },
 }
 
@@ -228,7 +309,8 @@ MESSAGES = {
 class Config:
     allowed_packages: list[str]
     pin: str | None
-    lockdown_enabled: bool
+    restriction_mode: str
+    schedule_rules: list[dict[str, Any]]
     location_request_id: int
     server_configured: bool
     updated_at: str
@@ -240,7 +322,7 @@ class DeviceSummary:
     name: str
     reported_at: str | None
     allowed_packages_count: int
-    lockdown_enabled: bool
+    restriction_mode: str
 
 
 def utc_now() -> str:
@@ -324,6 +406,164 @@ def parse_bool(value: Any, default: bool = False) -> bool:
     return bool(value)
 
 
+def normalize_restriction_mode(
+    raw_mode: Any,
+    legacy_lockdown: Any = None,
+    legacy_parental: Any = None,
+) -> str:
+    mode = str(raw_mode or "").strip().lower().replace("-", "_")
+    if mode in {"parental", "parental_lock", "parentalrestriction"}:
+        return RESTRICTION_PARENTAL
+    if mode in {"lost", "lost_phone", "lockdown"}:
+        return RESTRICTION_LOST
+    if parse_bool(legacy_parental):
+        return RESTRICTION_PARENTAL
+    if parse_bool(legacy_lockdown):
+        return RESTRICTION_LOST
+    return RESTRICTION_NONE
+
+
+def parse_time(value: Any) -> str | None:
+    text = str(value or "").strip()
+    if ":" not in text:
+        return None
+    hours_text, minutes_text = text.split(":", 1)
+    try:
+        hours = int(hours_text)
+        minutes = int(minutes_text)
+    except ValueError:
+        return None
+    if hours not in range(0, 24) or minutes not in range(0, 60):
+        return None
+    return f"{hours:02d}:{minutes:02d}"
+
+
+def parse_days(value: Any) -> list[int]:
+    if isinstance(value, (list, tuple, set)):
+        days = []
+        for item in value:
+            try:
+                day = int(item)
+            except (TypeError, ValueError):
+                continue
+            if day in range(1, 8) and day not in days:
+                days.append(day)
+        return sorted(days)
+
+    text = str(value or "").strip().lower()
+    if not text:
+        return []
+    if text in {"all", "daily", "everyday", "*"}:
+        return list(range(1, 8))
+    if text in {"weekday", "weekdays"}:
+        return [1, 2, 3, 4, 5]
+    if text in {"weekend", "weekends"}:
+        return [6, 7]
+
+    days: list[int] = []
+    for token in text.replace(";", ",").split(","):
+        token = token.strip()
+        if not token:
+            continue
+        if "-" in token:
+            start_raw, end_raw = [part.strip() for part in token.split("-", 1)]
+            start_day = DAY_ALIASES.get(start_raw)
+            end_day = DAY_ALIASES.get(end_raw)
+            if not start_day or not end_day:
+                continue
+            current = start_day
+            while True:
+                if current not in days:
+                    days.append(current)
+                if current == end_day:
+                    break
+                current = 1 if current == 7 else current + 1
+        else:
+            day = DAY_ALIASES.get(token)
+            if day and day not in days:
+                days.append(day)
+    return sorted(days)
+
+
+def normalize_schedule_rules(raw_rules: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw_rules, list):
+        return []
+
+    rules = []
+    for index, raw_rule in enumerate(raw_rules):
+        if not isinstance(raw_rule, dict):
+            continue
+        start_time = parse_time(raw_rule.get("start"))
+        end_time = parse_time(raw_rule.get("end"))
+        days = parse_days(raw_rule.get("days"))
+        mode = normalize_restriction_mode(raw_rule.get("mode"))
+        if not start_time or not end_time or not days or mode == RESTRICTION_NONE:
+            continue
+        rule_id = str(raw_rule.get("id") or f"rule-{index + 1}").strip()[:40]
+        rules.append(
+            {
+                "id": rule_id or f"rule-{index + 1}",
+                "enabled": parse_bool(raw_rule.get("enabled"), default=True),
+                "days": days,
+                "start": start_time,
+                "end": end_time,
+                "mode": mode,
+            }
+        )
+    return rules
+
+
+def parse_schedule_rules_text(raw_text: str) -> list[dict[str, Any]]:
+    rules = []
+    for line_index, raw_line in enumerate(raw_text.splitlines(), start=1):
+        line = raw_line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        days = parse_days(parts[0])
+        time_range = parts[1]
+        if "-" not in time_range:
+            continue
+        start_raw, end_raw = time_range.split("-", 1)
+        start_time = parse_time(start_raw)
+        end_time = parse_time(end_raw)
+        mode = normalize_restriction_mode(parts[2] if len(parts) > 2 else RESTRICTION_PARENTAL)
+        if not days or not start_time or not end_time or mode == RESTRICTION_NONE:
+            continue
+        rules.append(
+            {
+                "id": f"rule-{line_index}",
+                "enabled": True,
+                "days": days,
+                "start": start_time,
+                "end": end_time,
+                "mode": mode,
+            }
+        )
+    return normalize_schedule_rules(rules)
+
+
+def days_to_text(days: list[int]) -> str:
+    normalized = sorted(day for day in days if day in range(1, 8))
+    if normalized == list(range(1, 8)):
+        return "All"
+    if normalized == [1, 2, 3, 4, 5]:
+        return "Weekdays"
+    if normalized == [6, 7]:
+        return "Weekends"
+    return ",".join(DAY_NAMES[day - 1] for day in normalized)
+
+
+def schedule_rules_to_text(rules: list[dict[str, Any]]) -> str:
+    return "\n".join(
+        f"{days_to_text(rule['days'])} {rule['start']}-{rule['end']} {rule['mode']}"
+        for rule in normalize_schedule_rules(rules)
+        if rule.get("enabled", True)
+    )
+
+
 def parse_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
@@ -343,7 +583,9 @@ def read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
     ensure_data_dir()
-    temporary_path = path.with_suffix(".tmp")
+    temporary_path = path.with_name(
+        f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+    )
     temporary_path.write_text(
         json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True),
         encoding="utf-8",
@@ -355,7 +597,10 @@ def default_config_data() -> dict[str, Any]:
     return {
         "allowedPackages": [],
         "pin": None,
+        "restrictionMode": RESTRICTION_NONE,
+        "parentalLockEnabled": False,
         "lockdownEnabled": False,
+        "scheduleRules": [],
         "locationRequestId": 0,
         "serverConfigured": False,
         "updatedAt": utc_now(),
@@ -369,23 +614,33 @@ def default_device_state(device_id: str, device_name: str) -> dict[str, Any]:
         "reportedAt": None,
         "installedApps": [],
         "localAllowedPackages": [],
+        "restrictionMode": RESTRICTION_NONE,
         "lockdownEnabled": False,
+        "appliedConfigUpdatedAt": "",
+        "configApplyStatus": "",
         "location": None,
     }
 
 
 def config_from_data(data: dict[str, Any]) -> Config:
     has_configuration_marker = "serverConfigured" in data
+    restriction_mode = normalize_restriction_mode(
+        data.get("restrictionMode"),
+        legacy_lockdown=data.get("lockdownEnabled"),
+        legacy_parental=data.get("parentalLockEnabled"),
+    )
     is_default_config = (
         not normalize_packages(data.get("allowedPackages", []))
         and not data.get("pin")
-        and not parse_bool(data.get("lockdownEnabled"))
+        and restriction_mode == RESTRICTION_NONE
+        and not normalize_schedule_rules(data.get("scheduleRules", []))
         and max(0, parse_int(data.get("locationRequestId"))) == 0
     )
     return Config(
         allowed_packages=normalize_packages(data.get("allowedPackages", [])),
         pin=data.get("pin") or None,
-        lockdown_enabled=parse_bool(data.get("lockdownEnabled")),
+        restriction_mode=restriction_mode,
+        schedule_rules=normalize_schedule_rules(data.get("scheduleRules", [])),
         location_request_id=max(0, parse_int(data.get("locationRequestId"))),
         server_configured=(
             parse_bool(data.get("serverConfigured"))
@@ -400,7 +655,10 @@ def config_to_data(config: Config) -> dict[str, Any]:
     return {
         "allowedPackages": config.allowed_packages,
         "pin": config.pin,
-        "lockdownEnabled": config.lockdown_enabled,
+        "restrictionMode": config.restriction_mode,
+        "parentalLockEnabled": config.restriction_mode == RESTRICTION_PARENTAL,
+        "lockdownEnabled": config.restriction_mode == RESTRICTION_LOST,
+        "scheduleRules": normalize_schedule_rules(config.schedule_rules),
         "locationRequestId": config.location_request_id,
         "serverConfigured": config.server_configured,
         "updatedAt": config.updated_at,
@@ -515,28 +773,32 @@ def write_config(
     device_id: str,
     allowed_packages: list[str],
     pin: str | None,
-    lockdown_enabled: bool,
+    restriction_mode: str,
+    schedule_rules: list[dict[str, Any]] | None,
     location_request_id: int,
     server_configured: bool = True,
 ) -> Config:
     config = Config(
         allowed_packages=normalize_packages(allowed_packages),
         pin=pin,
-        lockdown_enabled=lockdown_enabled,
+        restriction_mode=normalize_restriction_mode(restriction_mode),
+        schedule_rules=normalize_schedule_rules(schedule_rules or []),
         location_request_id=max(0, int(location_request_id)),
         server_configured=server_configured,
         updated_at=utc_now(),
     )
-    store = read_devices_store()
-    device = ensure_device(store, device_id)
-    device["config"] = config_to_data(config)
-    write_devices_store(store)
+    with DATA_LOCK:
+        store = read_devices_store()
+        device = ensure_device(store, device_id)
+        device["config"] = config_to_data(config)
+        write_devices_store(store)
     return config
 
 
 def config_to_api(config: Config, device_id: str) -> dict[str, Any]:
     data = config_to_data(config)
     data["deviceId"] = device_id
+    data["scheduleRulesText"] = schedule_rules_to_text(config.schedule_rules)
     return data
 
 
@@ -555,7 +817,8 @@ def maybe_bootstrap_config_from_device_state(
     bootstrapped_config = Config(
         allowed_packages=allowed_packages,
         pin=config.pin,
-        lockdown_enabled=config.lockdown_enabled,
+        restriction_mode=config.restriction_mode,
+        schedule_rules=config.schedule_rules,
         location_request_id=config.location_request_id,
         server_configured=True,
         updated_at=utc_now(),
@@ -600,7 +863,7 @@ def list_device_summaries(store: dict[str, Any]) -> list[DeviceSummary]:
                 name=normalize_device_name(raw_device.get("name"), str(device_id)),
                 reported_at=state.get("reportedAt"),
                 allowed_packages_count=len(config.allowed_packages),
-                lockdown_enabled=config.lockdown_enabled,
+                restriction_mode=config.restriction_mode,
             )
         )
     return sorted(summaries, key=lambda item: (item.name.casefold(), item.device_id))
@@ -612,7 +875,9 @@ def device_summary_to_api(summary: DeviceSummary) -> dict[str, Any]:
         "name": summary.name,
         "reportedAt": summary.reported_at,
         "allowedPackagesCount": summary.allowed_packages_count,
-        "lockdownEnabled": summary.lockdown_enabled,
+        "restrictionMode": summary.restriction_mode,
+        "parentalLockEnabled": summary.restriction_mode == RESTRICTION_PARENTAL,
+        "lockdownEnabled": summary.restriction_mode == RESTRICTION_LOST,
     }
 
 
@@ -646,14 +911,28 @@ def write_config_from_payload(
     if parse_bool(payload.get("requestLocation")):
         location_request_id += 1
 
+    restriction_mode = current_config.restriction_mode
+    if "restrictionMode" in payload:
+        restriction_mode = normalize_restriction_mode(payload.get("restrictionMode"))
+    elif "parentalLockEnabled" in payload or "lockdownEnabled" in payload:
+        restriction_mode = normalize_restriction_mode(
+            None,
+            legacy_lockdown=payload.get("lockdownEnabled"),
+            legacy_parental=payload.get("parentalLockEnabled"),
+        )
+
+    schedule_rules = current_config.schedule_rules
+    if "scheduleRules" in payload:
+        schedule_rules = normalize_schedule_rules(payload.get("scheduleRules"))
+    elif "scheduleRulesText" in payload:
+        schedule_rules = parse_schedule_rules_text(str(payload.get("scheduleRulesText") or ""))
+
     return write_config(
         device_id=device_id,
         allowed_packages=allowed_packages,
         pin=pin,
-        lockdown_enabled=parse_bool(
-            payload.get("lockdownEnabled"),
-            default=current_config.lockdown_enabled,
-        ),
+        restriction_mode=restriction_mode,
+        schedule_rules=schedule_rules,
         location_request_id=location_request_id,
     )
 
@@ -765,6 +1044,63 @@ def location_request_summary(config: Config, device_state: dict[str, Any], langu
     )
 
 
+def config_apply_summary(config: Config, device_state: dict[str, Any], language: str) -> str:
+    applied_updated_at = str(device_state.get("appliedConfigUpdatedAt") or "")
+    apply_status = str(device_state.get("configApplyStatus") or "")
+    if applied_updated_at == config.updated_at and apply_status == "applied":
+        return html.escape(
+            message(language, "config_apply_success", updated_at=config.updated_at)
+        )
+    if apply_status == "skipped_local_change":
+        return html.escape(message(language, "config_apply_skipped"))
+    return html.escape(
+        message(language, "config_apply_pending", updated_at=config.updated_at)
+    )
+
+
+def protection_health_summary(device_state: dict[str, Any], language: str) -> str:
+    health = device_state.get("protectionHealth")
+    if not isinstance(health, dict) or not health:
+        return html.escape(message(language, "protection_health_missing"))
+    total = len(health)
+    enabled = sum(1 for value in health.values() if bool(value))
+    details = ", ".join(
+        f"{key}={'on' if bool(value) else 'off'}"
+        for key, value in sorted(health.items())
+    )
+    return (
+        html.escape(
+            message(
+                language,
+                "protection_health_summary",
+                enabled=enabled,
+                total=total,
+            )
+        )
+        + f"<br><small>{html.escape(details)}</small>"
+    )
+
+
+def restriction_mode_options(config: Config, language: str) -> str:
+    labels = {
+        RESTRICTION_NONE: message(language, "restriction_none"),
+        RESTRICTION_PARENTAL: message(language, "restriction_parental"),
+        RESTRICTION_LOST: message(language, "restriction_lost"),
+    }
+    options = []
+    for mode in SUPPORTED_RESTRICTION_MODES:
+        checked = "checked" if config.restriction_mode == mode else ""
+        options.append(
+            f"""
+            <label class="radio-row">
+              <input type="radio" name="restrictionMode" value="{html.escape(mode)}" {checked}>
+              <span>{html.escape(labels[mode])}</span>
+            </label>
+            """
+        )
+    return "\n".join(options)
+
+
 def normalize_location_payload(raw_location: Any) -> dict[str, Any] | None:
     if not isinstance(raw_location, dict):
         return None
@@ -792,6 +1128,27 @@ def normalize_location_payload(raw_location: Any) -> dict[str, Any] | None:
         )
         location["capturedAt"] = captured_at.isoformat()
     return location
+
+
+def normalize_protection_health(raw_health: Any) -> dict[str, bool]:
+    """Normalize Android-side protection status reported by the phone."""
+    if not isinstance(raw_health, dict):
+        return {}
+    allowed_keys = {
+        "deviceOwnerEnabled",
+        "deviceAdminEnabled",
+        "accessibilityEnabled",
+        "overlayEnabled",
+        "usageAccessEnabled",
+        "callPermissionGranted",
+        "locationPermissionGranted",
+        "flashlightPermissionGranted",
+    }
+    return {
+        key: bool(raw_health.get(key))
+        for key in sorted(allowed_keys)
+        if key in raw_health
+    }
 
 
 def render_admin_page(
@@ -836,9 +1193,12 @@ def render_admin_page(
     auth_note = message(language, "auth_enabled") if ADMIN_TOKEN else message(language, "auth_disabled")
     reported_at = html.escape(str(device_state.get("reportedAt") or message(language, "no_data")))
     updated_at = html.escape(config.updated_at)
-    lockdown_checked = "checked" if config.lockdown_enabled else ""
     location_html = location_summary(device_state, language)
     location_request_html = location_request_summary(config, device_state, language)
+    config_apply_html = config_apply_summary(config, device_state, language)
+    protection_health_html = protection_health_summary(device_state, language)
+    restriction_options = restriction_mode_options(config, language)
+    schedule_rules_text = html.escape(schedule_rules_to_text(config.schedule_rules))
     page_title = html.escape(message(language, "title"))
     selected_device = next(
         (device for device in devices if device.device_id == selected_device_id),
@@ -959,12 +1319,22 @@ def render_admin_page(
       padding: 10px;
       cursor: pointer;
     }}
-    .app-row small {{
-      display: block;
-      color: #64748b;
-      margin-top: 2px;
-      word-break: break-word;
-    }}
+	    .app-row small {{
+	      display: block;
+	      color: #64748b;
+	      margin-top: 2px;
+	      word-break: break-word;
+	    }}
+	    .radio-row {{
+	      display: flex;
+	      align-items: center;
+	      gap: 10px;
+	      border: 1px solid #e5e7eb;
+	      border-radius: 8px;
+	      padding: 10px;
+	      margin: 8px 0;
+	      cursor: pointer;
+	    }}
     .badge {{
       display: inline-block;
       color: #334155;
@@ -1012,10 +1382,12 @@ def render_admin_page(
     <h1>{page_title}</h1>
     <div class="meta">
       <span>{html.escape(message(language, "config"))}: {updated_at}</span>
-      <span>{html.escape(message(language, "last_phone_report"))}: {reported_at}</span>
-      <span>{html.escape(message(language, "auth_note"))}: {html.escape(auth_note)}</span>
-      <span>{html.escape(message(language, "device"))}: {html.escape(selected_device.name if selected_device else message(language, "no_data"))}</span>
-    </div>
+	      <span>{html.escape(message(language, "last_phone_report"))}: {reported_at}</span>
+	      <span>{html.escape(message(language, "auth_note"))}: {html.escape(auth_note)}</span>
+		      <span>{html.escape(message(language, "device"))}: {html.escape(selected_device.name if selected_device else message(language, "no_data"))}</span>
+		      <span>{html.escape(message(language, "config_apply_status"))}: {config_apply_html}</span>
+		      <span>{html.escape(message(language, "protection_health"))}: {protection_health_html}</span>
+		    </div>
     <nav class="language-switch device-switch" aria-label="{html.escape(message(language, "devices"))}">
       {device_links}
     </nav>
@@ -1036,17 +1408,21 @@ def render_admin_page(
           {html.escape(message(language, "extra_packages_help"))}
           <textarea name="manualPackages" spellcheck="false">{manual_packages}</textarea>
         </label>
-      </section>
-      <section class="panel">
-        <h2>{html.escape(message(language, "lockdown_section"))}</h2>
-        <label>
-          <input type="checkbox" name="lockdownEnabled" value="1" {lockdown_checked}>
-          {html.escape(message(language, "lockdown_enabled"))}
-        </label>
-        <p class="muted">{html.escape(message(language, "lockdown_help"))}</p>
-      </section>
-      <section class="panel">
-        <h2>{html.escape(message(language, "location_request"))}</h2>
+	      </section>
+	      <section class="panel">
+	        <h2>{html.escape(message(language, "restriction_section"))}</h2>
+	        {restriction_options}
+	        <p class="muted">{html.escape(message(language, "restriction_help"))}</p>
+	      </section>
+	      <section class="panel">
+	        <h2>{html.escape(message(language, "schedule_section"))}</h2>
+	        <label class="field">
+	          {html.escape(message(language, "schedule_help"))}
+	          <textarea name="scheduleRulesText" spellcheck="false">{schedule_rules_text}</textarea>
+	        </label>
+	      </section>
+	      <section class="panel">
+	        <h2>{html.escape(message(language, "location_request"))}</h2>
         <p class="muted">{location_request_html}</p>
         <p class="muted"><strong>{html.escape(message(language, "latest_location"))}:</strong><br>{location_html}</p>
         <button type="submit" name="action" value="requestLocation">{html.escape(message(language, "request_location"))}</button>
@@ -1117,7 +1493,8 @@ async def update_config(request: Request) -> Redirect | Response:
         )
     current_config = read_config(device_id)
     action = str(form.get("action") or "save")
-    lockdown_enabled = form.get("lockdownEnabled") == "1"
+    restriction_mode = normalize_restriction_mode(form.get("restrictionMode"))
+    schedule_rules = parse_schedule_rules_text(str(form.get("scheduleRulesText") or ""))
     location_request_id = current_config.location_request_id
     if action == "requestLocation":
         location_request_id += 1
@@ -1131,11 +1508,12 @@ async def update_config(request: Request) -> Redirect | Response:
             media_type="text/plain",
         )
 
-    config = write_config(
+    write_config(
         device_id,
         selected_packages + manual_packages,
         pin,
-        lockdown_enabled,
+        restriction_mode,
+        schedule_rules,
         location_request_id,
     )
     return Redirect(path=f"/?lang={quote(language)}&deviceId={quote(device_id)}")
@@ -1250,31 +1628,57 @@ async def api_device_state(request: Request) -> Response:
         )
 
     normalized_apps.sort(key=lambda app: (app["label"].casefold(), app["packageName"]))
-    store = read_devices_store()
-    device = ensure_device(store, device_id, device_name)
-    maybe_bootstrap_config_from_device_state(
-        device,
-        payload.get("localAllowedPackages"),
-    )
-    previous_state = device.get("state") if isinstance(device.get("state"), dict) else {}
-    previous_location = previous_state.get("location") if isinstance(previous_state, dict) else None
-    location = (
-        normalize_location_payload(payload.get("location"))
-        if "location" in payload
-        else previous_location
-    )
-    state = {
-        "deviceId": device_id,
-        "deviceName": device_name,
-        "reportedAt": utc_now(),
-        "installedApps": normalized_apps,
-        "localAllowedPackages": normalize_packages(payload.get("localAllowedPackages") or []),
-        "lockdownEnabled": parse_bool(payload.get("lockdownEnabled")),
-        "location": location,
-    }
-    device["name"] = device_name
-    device["state"] = state
-    write_devices_store(store)
+    with DATA_LOCK:
+        store = read_devices_store()
+        device = ensure_device(store, device_id, device_name)
+        maybe_bootstrap_config_from_device_state(
+            device,
+            payload.get("localAllowedPackages"),
+        )
+        previous_state = device.get("state") if isinstance(device.get("state"), dict) else {}
+        previous_location = previous_state.get("location") if isinstance(previous_state, dict) else None
+        location = (
+            normalize_location_payload(payload.get("location"))
+            if "location" in payload
+            else previous_location
+        )
+        restriction_mode = normalize_restriction_mode(
+            payload.get("restrictionMode"),
+            legacy_lockdown=payload.get("lockdownEnabled"),
+            legacy_parental=payload.get("parentalLockEnabled"),
+        )
+        applied_config_updated_at = str(
+            payload.get("appliedConfigUpdatedAt")
+            or previous_state.get("appliedConfigUpdatedAt")
+            or ""
+        )
+        config_apply_status = str(
+            payload.get("configApplyStatus")
+            or previous_state.get("configApplyStatus")
+            or ""
+        )
+        protection_health = normalize_protection_health(
+            payload.get("protectionHealth")
+            or previous_state.get("protectionHealth")
+            or {}
+        )
+        state = {
+            "deviceId": device_id,
+            "deviceName": device_name,
+            "reportedAt": utc_now(),
+            "installedApps": normalized_apps,
+            "localAllowedPackages": normalize_packages(payload.get("localAllowedPackages") or []),
+            "restrictionMode": restriction_mode,
+            "parentalLockEnabled": restriction_mode == RESTRICTION_PARENTAL,
+            "lockdownEnabled": restriction_mode == RESTRICTION_LOST,
+            "appliedConfigUpdatedAt": applied_config_updated_at,
+            "configApplyStatus": config_apply_status,
+            "protectionHealth": protection_health,
+            "location": location,
+        }
+        device["name"] = device_name
+        device["state"] = state
+        write_devices_store(store)
     return Response(content=json.dumps({"ok": True}), media_type="application/json")
 
 

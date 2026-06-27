@@ -19,7 +19,12 @@ async def async_setup_entry(
 ) -> None:
     """Set up HomeCage switches."""
     coordinator: HomeCageDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([HomeCageLostModeSwitch(coordinator, entry)])
+    async_add_entities(
+        [
+            HomeCageLostModeSwitch(coordinator, entry),
+            HomeCageParentRestrictionSwitch(coordinator, entry),
+        ]
+    )
 
 
 class HomeCageLostModeSwitch(CoordinatorEntity[HomeCageDataUpdateCoordinator], SwitchEntity):
@@ -40,7 +45,7 @@ class HomeCageLostModeSwitch(CoordinatorEntity[HomeCageDataUpdateCoordinator], S
     @property
     def is_on(self) -> bool:
         """Return true if lost mode is active."""
-        return bool(self.coordinator.data.get("config", {}).get("lockdownEnabled"))
+        return self.coordinator.data.get("config", {}).get("restrictionMode") == "lost"
 
     async def async_turn_on(self, **kwargs: object) -> None:
         """Enable lost mode."""
@@ -49,5 +54,41 @@ class HomeCageLostModeSwitch(CoordinatorEntity[HomeCageDataUpdateCoordinator], S
 
     async def async_turn_off(self, **kwargs: object) -> None:
         """Disable lost mode."""
-        await self.coordinator.api.async_set_lockdown(False)
+        if self.is_on:
+            await self.coordinator.api.async_set_lockdown(False)
+        await self.coordinator.async_request_refresh()
+
+
+class HomeCageParentRestrictionSwitch(
+    CoordinatorEntity[HomeCageDataUpdateCoordinator],
+    SwitchEntity,
+):
+    """Parent restriction switch."""
+
+    _attr_icon = "mdi:account-child"
+    _attr_has_entity_name = True
+    _attr_translation_key = "parent_restriction"
+
+    def __init__(
+        self,
+        coordinator: HomeCageDataUpdateCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_parent_restriction"
+
+    @property
+    def is_on(self) -> bool:
+        """Return true if parent restriction is active."""
+        return self.coordinator.data.get("config", {}).get("restrictionMode") == "parental"
+
+    async def async_turn_on(self, **kwargs: object) -> None:
+        """Enable parent restriction."""
+        await self.coordinator.api.async_set_parental_restriction(True)
+        await self.coordinator.async_request_refresh()
+
+    async def async_turn_off(self, **kwargs: object) -> None:
+        """Disable parent restriction."""
+        if self.is_on:
+            await self.coordinator.api.async_set_parental_restriction(False)
         await self.coordinator.async_request_refresh()

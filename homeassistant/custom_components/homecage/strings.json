@@ -42,11 +42,22 @@
       },
       "location_status": {
         "name": "Location status"
+      },
+      "restriction_mode": {
+        "name": "Restriction mode"
       }
     },
     "switch": {
       "lost_mode": {
         "name": "Lost mode"
+      },
+      "parent_restriction": {
+        "name": "Parent restriction"
+      }
+    },
+    "text": {
+      "schedule_rules": {
+        "name": "Schedule rules"
       }
     }
   }

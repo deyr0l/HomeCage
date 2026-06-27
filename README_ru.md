@@ -73,12 +73,15 @@ Device Owner обычно назначается только на чистом 
 | `ACCESS_NETWORK_STATE` | Android запускает синхронизацию только при доступной сети. |
 | `RECEIVE_BOOT_COMPLETED` | Повторно планирует синхронизацию после перезагрузки. |
 | `CALL_PHONE` | Быстрые вызовы. Приложение не читает контакты. |
+| `CAMERA` | Кнопка фонарика внутри HomeCage. Приложение управляет только torch mode и не получает изображение с камеры. |
 | `ACCESS_COARSE_LOCATION` / `ACCESS_FINE_LOCATION` | Опциональный отчёт локации по запросу сервера для режима потерянного устройства. |
+| `PACKAGE_USAGE_STATS` | Дополнительный слой для consumer-режима: второй сигнал о foreground-приложении, если Accessibility на OEM-прошивке дает неполные окна. |
+| `SYSTEM_ALERT_WINDOW` | Дополнительный слой для consumer-режима: блок-экран может использовать обычный overlay Android при активном Accessibility. |
 | Device Admin / Device Owner | Защита от удаления без PIN и включение Lock Task policies. |
 | Accessibility service | Резервная защита: отслеживает открытый пакет и возвращает в HomeCage, если открыт запрещенный экран. |
 | Package visibility для launcher-приложений | Список приложений в админке. Это не `QUERY_ALL_PACKAGES`. |
 
-Не используется: Usage Access (`PACKAGE_USAGE_STATS`), поверх окон (`SYSTEM_ALERT_WINDOW`), контакты, SMS, камера, микрофон, notification listener, VPN и `QUERY_ALL_PACKAGES`.
+Не используется: контакты, SMS, захват изображения с камеры, микрофон, notification listener, VPN и `QUERY_ALL_PACKAGES`.
 
 ## Accessibility и Restricted Settings
 

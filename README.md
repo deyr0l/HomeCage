@@ -18,7 +18,7 @@ Translations: [Русский](README_ru.md), [Español](README_es.md), [简体�
 
 ## Social restrictions!!!!!
 - HomeCage is not spyware.
-- HomeCage does not read messages, contacts, camera, microphone, or notifications.
+- HomeCage does not read messages, contacts, camera frames, microphone, or notifications.
 - HomeCage reads location only when the admin grants location permission and the server asks for a lost-device report.
 - HomeCage is not designed for covert monitoring.
 - HomeCage is a visible launcher restriction tool for parent-managed devices.
@@ -116,12 +116,15 @@ HomeCage keeps the permission set intentionally small:
 | `ACCESS_NETWORK_STATE` | Lets Android schedule sync only when a network is available. Required for JobScheduler network constraints. |
 | `RECEIVE_BOOT_COMPLETED` | Re-schedules background sync after reboot. |
 | `CALL_PHONE` | Optional quick-call buttons. The app does not read contacts. |
+| `CAMERA` | Optional in-app flashlight button. HomeCage uses Android torch control only and does not capture camera frames. |
 | `ACCESS_COARSE_LOCATION` / `ACCESS_FINE_LOCATION` | Optional server-requested location report for lost-device workflows. HomeCage reads the last known Android location only after the server asks for it. |
+| `PACKAGE_USAGE_STATS` | Optional consumer-mode hardening. It gives a second foreground-app signal when Accessibility windows are incomplete on OEM Android builds. |
+| `SYSTEM_ALERT_WINDOW` | Optional consumer-mode hardening. It lets the block screen use the normal Android overlay layer when Accessibility is active. |
 | Device Admin / Device Owner | Prevents a child from removing protection without the admin PIN and enables Lock Task policies. |
 | Accessibility service | Fallback protection on devices where Device Owner is not active. It observes the current foreground package and returns to HomeCage when a blocked app, launcher, installer, or settings screen is opened. |
 | Package visibility query for launcher apps | Lets the admin screen list installed launchable apps. This is not `QUERY_ALL_PACKAGES`. |
 
-Not used: Usage Access (`PACKAGE_USAGE_STATS`), draw-over-other-apps (`SYSTEM_ALERT_WINDOW`), contacts, SMS, camera, microphone, notification listener, VPN, or `QUERY_ALL_PACKAGES`.
+Not used: contacts, SMS, camera frame capture, microphone, notification listener, VPN, or `QUERY_ALL_PACKAGES`.
 
 ## Accessibility And Restricted Settings
 
@@ -185,7 +188,12 @@ Supported web UI languages:
 /?lang=ja
 ```
 
-Remote config can also enable lost mode and request the device location. Lost mode blocks allowed apps, quick calls, launchers, installers, and settings until the server disables it again. If the phone has no network, it keeps the last local config and tries again later.
+Remote config can also request device location and control restriction modes:
+`parental` blocks apps while leaving configured quick-call contacts available,
+and `lost` blocks apps, quick calls, launchers, installers, and settings until
+the server disables it again. The server can also send scheduled restriction
+rules such as `Weekdays 22:00-07:00 parental`; the phone keeps and evaluates the
+last synced schedule locally when it has no network.
 
 Background sync is scheduled roughly every 10 minutes when a network is available. Opening or returning to the HomeCage launcher also forces a sync attempt.
 

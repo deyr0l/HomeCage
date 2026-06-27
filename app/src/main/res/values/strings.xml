@@ -23,6 +23,7 @@
     <string name="section_language">Language</string>
     <string name="home_safe_mode_armed">Safe mode: ARMED</string>
     <string name="home_section_quick_call">QUICK CALL</string>
+    <string name="home_section_device_tools">DEVICE TOOLS</string>
     <string name="home_section_allowed_apps">ALLOWED APPS</string>
     <string name="home_apps_allowed_one">%1$d app allowed</string>
     <string name="home_apps_allowed_many">%1$d apps allowed</string>
@@ -32,11 +33,17 @@
     <string name="home_no_allowed_apps">No allowed apps yet</string>
     <string name="home_lockdown_title">Device locked</string>
     <string name="home_lockdown_message">Remote lost mode is active. Apps, calls, and settings are blocked until the server disables it.</string>
+    <string name="home_parental_restriction_title">Parent restriction active</string>
+    <string name="home_parental_restriction_message">Apps are paused by the server. Quick calls to configured contacts are still available.</string>
     <string name="home_emergency_contact">Emergency contact</string>
     <string name="home_allowed_app_label">Allowed app</string>
     <string name="home_admin_content_description">Open Admin</string>
     <string name="home_quick_call_content_description">Call %1$s</string>
     <string name="home_allowed_app_content_description">Open %1$s</string>
+    <string name="home_flashlight_title">Flashlight</string>
+    <string name="home_flashlight_on">Tap to turn off</string>
+    <string name="home_flashlight_off">Tap to turn on</string>
+    <string name="home_flashlight_content_description">Toggle flashlight</string>
 
     <string name="pin_label">PIN</string>
     <string name="admin_pin_title">Admin PIN</string>
@@ -56,6 +63,13 @@
     <string name="toast_call_permission_missing">Without call permission, quick call will not work</string>
     <string name="toast_location_permission_enabled">Location permission enabled</string>
     <string name="toast_location_permission_missing">Without location permission, server location requests will report permission denied</string>
+    <string name="toast_flashlight_permission_enabled">Flashlight permission enabled</string>
+    <string name="toast_flashlight_permission_missing">Without camera permission, the HomeCage flashlight button will not work</string>
+    <string name="toast_flashlight_need_permission">Flashlight requires camera permission in Admin</string>
+    <string name="toast_flashlight_not_available">This device does not expose a flashlight</string>
+    <string name="toast_flashlight_on">Flashlight on</string>
+    <string name="toast_flashlight_off">Flashlight off</string>
+    <string name="toast_flashlight_failed">Could not toggle flashlight</string>
     <string name="toast_allowed_list_saved">List saved</string>
     <string name="toast_kiosk_paused">Kiosk stopped until you return to the app</string>
     <string name="toast_protection_disabled">Protection disabled. You can remove the app.</string>
@@ -64,6 +78,7 @@
     <string name="toast_quick_calls_need_permission">Quick calls require call permission in Admin</string>
     <string name="toast_call_failed">Could not start call</string>
     <string name="toast_lockdown_active">Remote lost mode is active</string>
+    <string name="toast_parental_restriction_active">Parent restriction is active</string>
     <string name="toast_server_saved">Server settings saved</string>
     <string name="toast_quick_calls_saved">Quick calls saved</string>
     <string name="toast_language_saved">Language saved</string>
@@ -90,12 +105,18 @@
     <string name="status_not_allowed">not allowed</string>
     <string name="status_calls_allowed">allowed</string>
     <string name="status_calls_not_allowed">not allowed</string>
-    <string name="fallback_status">Device Admin: %1$s\nAccessibility protection: %2$s\nCalls: %3$s\nLocation: %4$s</string>
+    <string name="fallback_status">Device Admin: %1$s\nAccessibility protection: %2$s\nDisplay over apps: %3$s\nUsage Access: %4$s\nCalls: %5$s\nLocation: %6$s\nFlashlight: %7$s</string>
     <string name="button_enable_device_admin">Enable Device Admin</string>
     <string name="button_open_accessibility">Open Accessibility</string>
     <string name="button_open_accessibility_service">Open HomeCage Accessibility</string>
+    <string name="button_allow_overlay">Allow display over apps</string>
+    <string name="button_open_xiaomi_other_permissions">Open Xiaomi other permissions</string>
+    <string name="button_open_usage_access">Open Usage Access</string>
     <string name="button_open_restricted_settings">Open restricted settings</string>
+    <string name="button_open_xiaomi_autostart">Open Xiaomi autostart</string>
+    <string name="button_open_battery_settings">Open battery settings</string>
     <string name="button_allow_calls">Allow calls</string>
+    <string name="button_allow_flashlight">Allow flashlight</string>
     <string name="button_allow_location">Allow location</string>
     <string name="restricted_settings_help">If Android says access was denied, open restricted settings, tap the three-dot menu on the HomeCage app page, choose Allow restricted settings, then return here and open Accessibility again.</string>
     <string name="toast_open_settings_failed">Could not open Android settings</string>

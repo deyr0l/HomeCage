@@ -114,8 +114,14 @@ The JSON endpoint accepts partial updates:
 curl \
   -H "Authorization: Bearer change-this-token" \
   -H "Content-Type: application/json" \
-  -d '{"lockdownEnabled": true, "requestLocation": true}' \
+  -d '{"restrictionMode": "parental", "scheduleRulesText": "Weekdays 22:00-07:00 parental", "requestLocation": true}' \
   'http://localhost:8000/api/config?deviceId=android-id-here'
 ```
+
+Use `"restrictionMode": "lost"` for full lost-phone lockdown. The legacy
+`lockdownEnabled` boolean is still accepted and maps to `"lost"`.
+Scheduled rules use one line per rule: `<days> <HH:MM-HH:MM> <mode>`, where
+days can be `All`, `Weekdays`, `Weekends`, `Mon-Fri`, or comma-separated day
+names. Modes are `parental` or `lost`.
 
 Home Assistant support is shipped as a separate HACS custom integration in `../homeassistant`. The server intentionally exposes only generic JSON endpoints.

@@ -23,6 +23,7 @@
     <string name="section_language">言語</string>
     <string name="home_safe_mode_armed">セーフモード: 有効</string>
     <string name="home_section_quick_call">クイック通話</string>
+    <string name="home_section_device_tools">端末ツール</string>
     <string name="home_section_allowed_apps">許可されたアプリ</string>
     <string name="home_apps_allowed_one">%1$d 個のアプリを許可</string>
     <string name="home_apps_allowed_many">%1$d 個のアプリを許可</string>
@@ -32,11 +33,17 @@
     <string name="home_no_allowed_apps">許可されたアプリはまだありません</string>
     <string name="home_lockdown_title">端末はロックされています</string>
     <string name="home_lockdown_message">リモート紛失モードが有効です。サーバーが解除するまで、アプリ、通話、設定はブロックされます。</string>
+    <string name="home_parental_restriction_title">保護者制限が有効です</string>
+    <string name="home_parental_restriction_message">サーバーによりアプリは一時停止中です。設定済み連絡先へのクイック通話は利用できます。</string>
     <string name="home_emergency_contact">緊急連絡先</string>
     <string name="home_allowed_app_label">許可されたアプリ</string>
     <string name="home_admin_content_description">管理を開く</string>
     <string name="home_quick_call_content_description">%1$s に電話</string>
     <string name="home_allowed_app_content_description">%1$s を開く</string>
+    <string name="home_flashlight_title">ライト</string>
+    <string name="home_flashlight_on">タップしてオフ</string>
+    <string name="home_flashlight_off">タップしてオン</string>
+    <string name="home_flashlight_content_description">ライトを切り替え</string>
 
     <string name="pin_label">PIN</string>
     <string name="admin_pin_title">管理者 PIN</string>
@@ -56,6 +63,13 @@
     <string name="toast_call_permission_missing">通話権限がないためクイック通話は使えません</string>
     <string name="toast_location_permission_enabled">位置情報権限が有効になりました</string>
     <string name="toast_location_permission_missing">位置情報権限がない場合、サーバーの位置情報リクエストは権限拒否として報告されます</string>
+    <string name="toast_flashlight_permission_enabled">ライト権限が有効になりました</string>
+    <string name="toast_flashlight_permission_missing">カメラ権限がない場合、HomeCage のライトボタンは動作しません</string>
+    <string name="toast_flashlight_need_permission">ライトには管理画面でカメラ権限が必要です</string>
+    <string name="toast_flashlight_not_available">この端末はライトを公開していません</string>
+    <string name="toast_flashlight_on">ライトオン</string>
+    <string name="toast_flashlight_off">ライトオフ</string>
+    <string name="toast_flashlight_failed">ライトを切り替えられませんでした</string>
     <string name="toast_allowed_list_saved">リストを保存しました</string>
     <string name="toast_kiosk_paused">アプリに戻るまで kiosk を停止しました</string>
     <string name="toast_protection_disabled">保護を無効にしました。アプリを削除できます。</string>
@@ -64,6 +78,7 @@
     <string name="toast_quick_calls_need_permission">クイック通話には管理画面で通話権限が必要です</string>
     <string name="toast_call_failed">通話を開始できませんでした</string>
     <string name="toast_lockdown_active">リモート紛失モードが有効です</string>
+    <string name="toast_parental_restriction_active">保護者制限が有効です</string>
     <string name="toast_server_saved">サーバー設定を保存しました</string>
     <string name="toast_quick_calls_saved">クイック通話を保存しました</string>
     <string name="toast_language_saved">言語を保存しました</string>
@@ -90,12 +105,18 @@
     <string name="status_not_allowed">未許可</string>
     <string name="status_calls_allowed">許可</string>
     <string name="status_calls_not_allowed">未許可</string>
-    <string name="fallback_status">Device Admin: %1$s\nAccessibility 保護: %2$s\n通話: %3$s\n位置情報: %4$s</string>
+    <string name="fallback_status">Device Admin: %1$s\nAccessibility 保護: %2$s\n他のアプリの上に表示: %3$s\nUsage Access: %4$s\n通話: %5$s\n位置情報: %6$s\nライト: %7$s</string>
     <string name="button_enable_device_admin">Device Admin を有効化</string>
     <string name="button_open_accessibility">Accessibility を開く</string>
     <string name="button_open_accessibility_service">HomeCage Accessibility を開く</string>
+    <string name="button_allow_overlay">他のアプリの上に表示を許可</string>
+    <string name="button_open_xiaomi_other_permissions">Xiaomi その他の権限を開く</string>
+    <string name="button_open_usage_access">Usage Access を開く</string>
     <string name="button_open_restricted_settings">制限付き設定を開く</string>
+    <string name="button_open_xiaomi_autostart">Xiaomi 自動起動を開く</string>
+    <string name="button_open_battery_settings">バッテリー設定を開く</string>
     <string name="button_allow_calls">通話を許可</string>
+    <string name="button_allow_flashlight">ライトを許可</string>
     <string name="button_allow_location">位置情報を許可</string>
     <string name="restricted_settings_help">Android がアクセス拒否を表示した場合は、制限付き設定を開き、HomeCage のアプリ情報ページで三点メニューから Allow restricted settings を選び、ここに戻って Accessibility をもう一度開いてください。</string>
     <string name="toast_open_settings_failed">Android 設定を開けませんでした</string>

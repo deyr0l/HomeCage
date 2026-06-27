@@ -1,6 +1,8 @@
 package com.homecage.kiosk.sync
 
 import com.homecage.kiosk.data.LaunchableApp
+import com.homecage.kiosk.data.RestrictionMode
+import com.homecage.kiosk.data.RestrictionScheduleRule
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -13,8 +15,10 @@ import java.net.URLEncoder
 data class RemoteKioskConfig(
     val allowedPackages: Set<String>,
     val pin: String?,
-    val lockdownEnabled: Boolean,
-    val locationRequestId: Long
+    val restrictionMode: RestrictionMode,
+    val scheduleRules: List<RestrictionScheduleRule>,
+    val locationRequestId: Long,
+    val updatedAt: String
 )
 
 class RemoteConfigClient(
@@ -26,13 +30,23 @@ class RemoteConfigClient(
         deviceName: String,
         installedApps: List<LaunchableApp>,
         localAllowedPackages: Set<String>,
-        lockdownEnabled: Boolean,
-        location: DeviceLocationReport?
+        restrictionMode: RestrictionMode,
+        location: DeviceLocationReport?,
+        appliedConfigUpdatedAt: String,
+        configApplyStatus: String,
+        protectionHealth: ProtectionHealthReport
     ) {
         val payload = JSONObject().apply {
             put("deviceId", deviceId)
             put("deviceName", deviceName)
-            put("lockdownEnabled", lockdownEnabled)
+            put("restrictionMode", restrictionMode.wireValue)
+            put("lockdownEnabled", restrictionMode == RestrictionMode.LOST)
+            if (appliedConfigUpdatedAt.isNotBlank()) {
+                put("appliedConfigUpdatedAt", appliedConfigUpdatedAt)
+            }
+            if (configApplyStatus.isNotBlank()) {
+                put("configApplyStatus", configApplyStatus)
+            }
             put("installedApps", JSONArray().apply {
                 installedApps.forEach { app ->
                     put(JSONObject().apply {
@@ -44,6 +58,16 @@ class RemoteConfigClient(
             })
             put("localAllowedPackages", JSONArray().apply {
                 localAllowedPackages.sorted().forEach { put(it) }
+            })
+            put("protectionHealth", JSONObject().apply {
+                put("deviceOwnerEnabled", protectionHealth.deviceOwnerEnabled)
+                put("deviceAdminEnabled", protectionHealth.deviceAdminEnabled)
+                put("accessibilityEnabled", protectionHealth.accessibilityEnabled)
+                put("overlayEnabled", protectionHealth.overlayEnabled)
+                put("usageAccessEnabled", protectionHealth.usageAccessEnabled)
+                put("callPermissionGranted", protectionHealth.callPermissionGranted)
+                put("locationPermissionGranted", protectionHealth.locationPermissionGranted)
+                put("flashlightPermissionGranted", protectionHealth.flashlightPermissionGranted)
             })
             if (location != null) {
                 put("location", JSONObject().apply {
@@ -81,11 +105,22 @@ class RemoteConfigClient(
         if (pin != null && (pin.length !in 4..12 || pin.any { !it.isDigit() })) {
             error("Server returned an invalid PIN")
         }
+        val restrictionMode = if (root.has("restrictionMode")) {
+            RestrictionMode.fromWireValue(root.optString("restrictionMode"))
+        } else if (root.optBoolean("parentalLockEnabled", false)) {
+            RestrictionMode.PARENTAL
+        } else if (root.optBoolean("lockdownEnabled", false)) {
+            RestrictionMode.LOST
+        } else {
+            RestrictionMode.NONE
+        }
         return RemoteKioskConfig(
             allowedPackages = allowedPackages,
             pin = pin,
-            lockdownEnabled = root.optBoolean("lockdownEnabled", false),
-            locationRequestId = root.optLong("locationRequestId", 0L)
+            restrictionMode = restrictionMode,
+            scheduleRules = RestrictionScheduleRule.fromJsonArray(root.optJSONArray("scheduleRules")),
+            locationRequestId = root.optLong("locationRequestId", 0L),
+            updatedAt = root.optString("updatedAt", "")
         )
     }
 

@@ -23,6 +23,7 @@
     <string name="section_language">语言</string>
     <string name="home_safe_mode_armed">安全模式：已启用</string>
     <string name="home_section_quick_call">快速拨号</string>
+    <string name="home_section_device_tools">设备工具</string>
     <string name="home_section_allowed_apps">允许的应用</string>
     <string name="home_apps_allowed_one">已允许 %1$d 个应用</string>
     <string name="home_apps_allowed_many">已允许 %1$d 个应用</string>
@@ -32,11 +33,17 @@
     <string name="home_no_allowed_apps">尚未添加允许的应用</string>
     <string name="home_lockdown_title">设备已锁定</string>
     <string name="home_lockdown_message">远程丢失模式已启用。应用、通话和设置将被阻止，直到服务器关闭该模式。</string>
+    <string name="home_parental_restriction_title">家长限制已启用</string>
+    <string name="home_parental_restriction_message">服务器已暂停应用。仍可快速拨打已配置的联系人。</string>
     <string name="home_emergency_contact">紧急联系人</string>
     <string name="home_allowed_app_label">允许的应用</string>
     <string name="home_admin_content_description">打开管理</string>
     <string name="home_quick_call_content_description">呼叫 %1$s</string>
     <string name="home_allowed_app_content_description">打开 %1$s</string>
+    <string name="home_flashlight_title">手电筒</string>
+    <string name="home_flashlight_on">点按关闭</string>
+    <string name="home_flashlight_off">点按开启</string>
+    <string name="home_flashlight_content_description">切换手电筒</string>
 
     <string name="pin_label">PIN</string>
     <string name="admin_pin_title">管理员 PIN</string>
@@ -56,6 +63,13 @@
     <string name="toast_call_permission_missing">没有通话权限，快速拨号无法使用</string>
     <string name="toast_location_permission_enabled">位置权限已启用</string>
     <string name="toast_location_permission_missing">没有位置权限，服务器位置请求会报告权限被拒绝</string>
+    <string name="toast_flashlight_permission_enabled">手电筒权限已启用</string>
+    <string name="toast_flashlight_permission_missing">没有相机权限，HomeCage 手电筒按钮无法使用</string>
+    <string name="toast_flashlight_need_permission">手电筒需要在管理中启用相机权限</string>
+    <string name="toast_flashlight_not_available">此设备未向应用提供手电筒</string>
+    <string name="toast_flashlight_on">手电筒已开启</string>
+    <string name="toast_flashlight_off">手电筒已关闭</string>
+    <string name="toast_flashlight_failed">无法切换手电筒</string>
     <string name="toast_allowed_list_saved">列表已保存</string>
     <string name="toast_kiosk_paused">Kiosk 已暂停，直到返回应用</string>
     <string name="toast_protection_disabled">保护已停用。现在可以卸载应用。</string>
@@ -64,6 +78,7 @@
     <string name="toast_quick_calls_need_permission">快速拨号需要在管理中启用通话权限</string>
     <string name="toast_call_failed">无法开始通话</string>
     <string name="toast_lockdown_active">远程丢失模式已启用</string>
+    <string name="toast_parental_restriction_active">家长限制已启用</string>
     <string name="toast_server_saved">服务器设置已保存</string>
     <string name="toast_quick_calls_saved">快速拨号已保存</string>
     <string name="toast_language_saved">语言已保存</string>
@@ -90,12 +105,18 @@
     <string name="status_not_allowed">未允许</string>
     <string name="status_calls_allowed">已允许</string>
     <string name="status_calls_not_allowed">未允许</string>
-    <string name="fallback_status">Device Admin：%1$s\nAccessibility 保护：%2$s\n通话：%3$s\n位置：%4$s</string>
+    <string name="fallback_status">Device Admin：%1$s\nAccessibility 保护：%2$s\n显示在其他应用上层：%3$s\nUsage Access：%4$s\n通话：%5$s\n位置：%6$s\n手电筒：%7$s</string>
     <string name="button_enable_device_admin">启用 Device Admin</string>
     <string name="button_open_accessibility">打开 Accessibility</string>
     <string name="button_open_accessibility_service">打开 HomeCage Accessibility</string>
+    <string name="button_allow_overlay">允许显示在其他应用上层</string>
+    <string name="button_open_xiaomi_other_permissions">打开 Xiaomi 其他权限</string>
+    <string name="button_open_usage_access">打开 Usage Access</string>
     <string name="button_open_restricted_settings">打开受限设置</string>
+    <string name="button_open_xiaomi_autostart">打开 Xiaomi 自启动</string>
+    <string name="button_open_battery_settings">打开电池设置</string>
     <string name="button_allow_calls">允许通话</string>
+    <string name="button_allow_flashlight">允许手电筒</string>
     <string name="button_allow_location">允许位置</string>
     <string name="restricted_settings_help">如果 Android 提示访问被拒绝，请打开受限设置，在 HomeCage 应用页面点三点菜单，选择 Allow restricted settings，然后返回这里再次打开 Accessibility。</string>
     <string name="toast_open_settings_failed">无法打开 Android 设置</string>

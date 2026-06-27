@@ -23,6 +23,7 @@
     <string name="section_language">Язык</string>
     <string name="home_safe_mode_armed">Безопасный режим: ВКЛЮЧЕН</string>
     <string name="home_section_quick_call">БЫСТРЫЙ ВЫЗОВ</string>
+    <string name="home_section_device_tools">ИНСТРУМЕНТЫ</string>
     <string name="home_section_allowed_apps">РАЗРЕШЕННЫЕ ПРИЛОЖЕНИЯ</string>
     <string name="home_apps_allowed_one">%1$d приложение разрешено</string>
     <string name="home_apps_allowed_many">%1$d приложений разрешено</string>
@@ -32,11 +33,17 @@
     <string name="home_no_allowed_apps">Разрешенных приложений пока нет</string>
     <string name="home_lockdown_title">Устройство заблокировано</string>
     <string name="home_lockdown_message">Активен удаленный режим потери. Приложения, звонки и настройки заблокированы, пока сервер не отключит режим.</string>
+    <string name="home_parental_restriction_title">Родительское ограничение активно</string>
+    <string name="home_parental_restriction_message">Приложения временно отключены сервером. Быстрые звонки настроенным контактам доступны.</string>
     <string name="home_emergency_contact">Экстренный контакт</string>
     <string name="home_allowed_app_label">Разрешенное приложение</string>
     <string name="home_admin_content_description">Открыть админку</string>
     <string name="home_quick_call_content_description">Позвонить %1$s</string>
     <string name="home_allowed_app_content_description">Открыть %1$s</string>
+    <string name="home_flashlight_title">Фонарик</string>
+    <string name="home_flashlight_on">Нажмите, чтобы выключить</string>
+    <string name="home_flashlight_off">Нажмите, чтобы включить</string>
+    <string name="home_flashlight_content_description">Переключить фонарик</string>
 
     <string name="pin_label">PIN</string>
     <string name="admin_pin_title">PIN администратора</string>
@@ -56,6 +63,13 @@
     <string name="toast_call_permission_missing">Без разрешения на звонки быстрый вызов не работает</string>
     <string name="toast_location_permission_enabled">Разрешение на локацию включено</string>
     <string name="toast_location_permission_missing">Без разрешения на локацию запросы сервера вернут отказ в доступе</string>
+    <string name="toast_flashlight_permission_enabled">Разрешение для фонарика включено</string>
+    <string name="toast_flashlight_permission_missing">Без разрешения камеры кнопка фонарика HomeCage не будет работать</string>
+    <string name="toast_flashlight_need_permission">Фонарику нужно разрешение камеры в Admin</string>
+    <string name="toast_flashlight_not_available">Устройство не отдает фонарик приложению</string>
+    <string name="toast_flashlight_on">Фонарик включен</string>
+    <string name="toast_flashlight_off">Фонарик выключен</string>
+    <string name="toast_flashlight_failed">Не удалось переключить фонарик</string>
     <string name="toast_allowed_list_saved">Список сохранен</string>
     <string name="toast_kiosk_paused">Kiosk остановлен до возврата в приложение</string>
     <string name="toast_protection_disabled">Защита снята. Можно удалить приложение.</string>
@@ -64,6 +78,7 @@
     <string name="toast_quick_calls_need_permission">Быстрые вызовы требуют разрешения на звонки в админке</string>
     <string name="toast_call_failed">Не удалось начать звонок</string>
     <string name="toast_lockdown_active">Активен удаленный режим потери</string>
+    <string name="toast_parental_restriction_active">Активно родительское ограничение</string>
     <string name="toast_server_saved">Настройки сервера сохранены</string>
     <string name="toast_quick_calls_saved">Быстрые вызовы сохранены</string>
     <string name="toast_language_saved">Язык сохранен</string>
@@ -90,12 +105,18 @@
     <string name="status_not_allowed">не разрешено</string>
     <string name="status_calls_allowed">разрешены</string>
     <string name="status_calls_not_allowed">не разрешены</string>
-    <string name="fallback_status">Device Admin: %1$s\nAccessibility защита: %2$s\nЗвонки: %3$s\nЛокация: %4$s</string>
+    <string name="fallback_status">Device Admin: %1$s\nAccessibility защита: %2$s\nПоверх приложений: %3$s\nUsage Access: %4$s\nЗвонки: %5$s\nЛокация: %6$s\nФонарик: %7$s</string>
     <string name="button_enable_device_admin">Включить Device Admin</string>
     <string name="button_open_accessibility">Открыть Accessibility</string>
     <string name="button_open_accessibility_service">Открыть Accessibility HomeCage</string>
+    <string name="button_allow_overlay">Разрешить поверх приложений</string>
+    <string name="button_open_xiaomi_other_permissions">Открыть другие разрешения Xiaomi</string>
+    <string name="button_open_usage_access">Открыть Usage Access</string>
     <string name="button_open_restricted_settings">Открыть restricted settings</string>
+    <string name="button_open_xiaomi_autostart">Открыть автозапуск Xiaomi</string>
+    <string name="button_open_battery_settings">Открыть настройки батареи</string>
     <string name="button_allow_calls">Разрешить звонки</string>
+    <string name="button_allow_flashlight">Разрешить фонарик</string>
     <string name="button_allow_location">Разрешить локацию</string>
     <string name="restricted_settings_help">Если Android пишет, что доступ запрещен: откройте restricted settings, на странице HomeCage нажмите меню с тремя точками, выберите Allow restricted settings, затем вернитесь сюда и снова откройте Accessibility.</string>
     <string name="toast_open_settings_failed">Не удалось открыть настройки Android</string>

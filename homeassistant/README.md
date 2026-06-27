@@ -6,9 +6,10 @@ This folder is intentionally separated from the Android app and the HomeCage ser
 
 ## Features
 
-- Lost mode switch.
+- Lost mode and parent restriction switches.
+- Editable scheduled restriction rules text entity.
 - Request location button.
-- Sensors for allowed app count, location status, and last phone report.
+- Sensors for allowed app count, restriction mode, location status, and last phone report.
 - UI setup flow with server URL, optional admin token, and device selection.
 
 ## Server API

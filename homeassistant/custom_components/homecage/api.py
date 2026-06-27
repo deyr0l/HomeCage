@@ -57,7 +57,19 @@ class HomeCageClient:
 
     async def async_set_lockdown(self, enabled: bool) -> dict[str, Any]:
         """Enable or disable lost mode."""
-        return await self.async_update_config({"lockdownEnabled": enabled})
+        return await self.async_set_restriction_mode("lost" if enabled else "none")
+
+    async def async_set_parental_restriction(self, enabled: bool) -> dict[str, Any]:
+        """Enable or disable parent restriction."""
+        return await self.async_set_restriction_mode("parental" if enabled else "none")
+
+    async def async_set_restriction_mode(self, mode: str) -> dict[str, Any]:
+        """Set the remote restriction mode."""
+        return await self.async_update_config({"restrictionMode": mode})
+
+    async def async_set_schedule_rules_text(self, value: str) -> dict[str, Any]:
+        """Update scheduled restriction rules."""
+        return await self.async_update_config({"scheduleRulesText": value})
 
     async def async_request_location(self) -> dict[str, Any]:
         """Ask the phone to report location on its next sync."""

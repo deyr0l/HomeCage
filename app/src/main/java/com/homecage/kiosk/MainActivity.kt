@@ -2,6 +2,7 @@ package com.homecage.kiosk
 
 import android.Manifest
 import android.app.Activity
+import android.app.AppOpsManager
 import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Context
@@ -10,6 +11,8 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -36,6 +39,7 @@ import com.homecage.kiosk.data.AppRepository
 import com.homecage.kiosk.data.KioskPreferences
 import com.homecage.kiosk.data.LaunchableApp
 import com.homecage.kiosk.data.QuickCallContact
+import com.homecage.kiosk.data.RestrictionMode
 import com.homecage.kiosk.locale.AppLocaleManager
 import com.homecage.kiosk.protection.KioskAccessibilityService
 import com.homecage.kiosk.sync.ConfigSyncScheduler
@@ -53,6 +57,8 @@ class MainActivity : Activity() {
     private var currentScreen = Screen.LAUNCHER
     private var syncInFlight = false
     private var pinWorkInFlight = false
+    private var torchCameraId: String? = null
+    private var torchEnabled = false
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLocaleManager.wrap(newBase))
@@ -115,6 +121,14 @@ class MainActivity : Activity() {
                     Toast.makeText(this, R.string.toast_location_permission_missing, Toast.LENGTH_LONG).show()
                 }
             }
+            REQUEST_CAMERA -> {
+                val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+                if (granted) {
+                    Toast.makeText(this, R.string.toast_flashlight_permission_enabled, Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, R.string.toast_flashlight_permission_missing, Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 
@@ -126,7 +140,7 @@ class MainActivity : Activity() {
         val allowedPackages = preferences.getAllowedPackages()
         val allowedApps = launchableApps.filter { it.packageName in allowedPackages }
         val quickCallContacts = preferences.getQuickCallContacts()
-        val lockdownEnabled = preferences.isLockdownEnabled()
+        val restrictionMode = preferences.getEffectiveRestrictionMode()
         val root = homeRoot()
 
         root.addView(kioskHeader(onAdminClick = { showAdminPinDialog() }))
@@ -143,25 +157,43 @@ class MainActivity : Activity() {
         root.addView(scrollView, weightParams())
 
         content.addView(statusStrip(allowedApps.size, quickCallContacts.size))
+        if (restrictionMode != RestrictionMode.LOST) {
+            content.addView(homeSectionTitle(getString(R.string.home_section_device_tools)))
+            content.addView(flashlightCard())
+        }
 
-        if (lockdownEnabled) {
-            content.addView(lockdownCard())
-        } else {
-            content.addView(homeSectionTitle(getString(R.string.home_section_quick_call)))
-            if (quickCallContacts.isEmpty()) {
-                content.addView(emptyStateCard(getString(R.string.home_no_quick_contacts)))
-            } else {
-                quickCallContacts.forEach { contact ->
-                    content.addView(quickCallCard(contact))
+        when (restrictionMode) {
+            RestrictionMode.LOST -> {
+                content.addView(restrictionCard(restrictionMode))
+            }
+            RestrictionMode.PARENTAL -> {
+                content.addView(restrictionCard(restrictionMode))
+                content.addView(homeSectionTitle(getString(R.string.home_section_quick_call)))
+                if (quickCallContacts.isEmpty()) {
+                    content.addView(emptyStateCard(getString(R.string.home_no_quick_contacts)))
+                } else {
+                    quickCallContacts.forEach { contact ->
+                        content.addView(quickCallCard(contact))
+                    }
                 }
             }
+            RestrictionMode.NONE -> {
+                content.addView(homeSectionTitle(getString(R.string.home_section_quick_call)))
+                if (quickCallContacts.isEmpty()) {
+                    content.addView(emptyStateCard(getString(R.string.home_no_quick_contacts)))
+                } else {
+                    quickCallContacts.forEach { contact ->
+                        content.addView(quickCallCard(contact))
+                    }
+                }
 
-            content.addView(homeSectionTitle(getString(R.string.home_section_allowed_apps)))
-            if (allowedApps.isEmpty()) {
-                content.addView(emptyStateCard(getString(R.string.home_no_allowed_apps)))
-            } else {
-                allowedApps.forEach { app ->
-                    content.addView(allowedAppCard(app))
+                content.addView(homeSectionTitle(getString(R.string.home_section_allowed_apps)))
+                if (allowedApps.isEmpty()) {
+                    content.addView(emptyStateCard(getString(R.string.home_no_allowed_apps)))
+                } else {
+                    allowedApps.forEach { app ->
+                        content.addView(allowedAppCard(app))
+                    }
                 }
             }
         }
@@ -355,8 +387,14 @@ class MainActivity : Activity() {
     }
 
     private fun launchApp(app: LaunchableApp) {
-        if (preferences.isLockdownEnabled()) {
-            Toast.makeText(this, R.string.toast_lockdown_active, Toast.LENGTH_LONG).show()
+        val restrictionMode = preferences.getEffectiveRestrictionMode()
+        if (restrictionMode.blocksAppLaunches) {
+            val message = if (restrictionMode == RestrictionMode.LOST) {
+                R.string.toast_lockdown_active
+            } else {
+                R.string.toast_parental_restriction_active
+            }
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
             return
         }
 
@@ -386,7 +424,7 @@ class MainActivity : Activity() {
     }
 
     private fun startQuickCall(contact: QuickCallContact) {
-        if (preferences.isLockdownEnabled()) {
+        if (preferences.getEffectiveRestrictionMode() == RestrictionMode.LOST) {
             Toast.makeText(this, R.string.toast_lockdown_active, Toast.LENGTH_LONG).show()
             return
         }
@@ -403,6 +441,7 @@ class MainActivity : Activity() {
     }
 
     private fun placeQuickCall(contact: QuickCallContact) {
+        preferences.markQuickCallSession()
         val intent = Intent(Intent.ACTION_CALL).apply {
             data = Uri.parse("tel:${Uri.encode(contact.phone)}")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -421,10 +460,153 @@ class MainActivity : Activity() {
         checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
             checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
+    private fun hasFlashlightPermission(): Boolean =
+        checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+
+    private fun hasOverlayPermission(): Boolean =
+        Settings.canDrawOverlays(this)
+
+    private fun hasUsageAccess(): Boolean {
+        val appOpsManager = getSystemService(AppOpsManager::class.java) ?: return false
+        @Suppress("DEPRECATION")
+        val mode = appOpsManager.checkOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS,
+            applicationInfo.uid,
+            packageName
+        )
+        return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    private fun toggleFlashlight() {
+        if (!hasFlashlightPermission()) {
+            Toast.makeText(this, R.string.toast_flashlight_need_permission, Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val cameraManager = getSystemService(CameraManager::class.java)
+            ?: run {
+                Toast.makeText(this, R.string.toast_flashlight_not_available, Toast.LENGTH_LONG).show()
+                return
+            }
+        val cameraId = torchCameraId ?: findTorchCameraId(cameraManager)?.also {
+            torchCameraId = it
+        }
+        if (cameraId == null) {
+            Toast.makeText(this, R.string.toast_flashlight_not_available, Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val newState = !torchEnabled
+        runCatching {
+            cameraManager.setTorchMode(cameraId, newState)
+        }.onSuccess {
+            torchEnabled = newState
+            Toast.makeText(
+                this,
+                if (torchEnabled) R.string.toast_flashlight_on else R.string.toast_flashlight_off,
+                Toast.LENGTH_SHORT
+            ).show()
+            showLauncherScreen(syncOnOpen = false)
+        }.onFailure {
+            Toast.makeText(this, R.string.toast_flashlight_failed, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun findTorchCameraId(cameraManager: CameraManager): String? =
+        runCatching {
+            cameraManager.cameraIdList.firstOrNull { cameraId ->
+                val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+                val hasFlash = characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+                val isBackCamera =
+                    characteristics.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK
+                hasFlash && isBackCamera
+            } ?: cameraManager.cameraIdList.firstOrNull { cameraId ->
+                cameraManager.getCameraCharacteristics(cameraId)
+                    .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+            }
+        }.getOrNull()
+
+    private fun openOverlayPermissionSettings() {
+        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+            data = Uri.parse("package:$packageName")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        if (!tryStartSettingsActivity(intent)) {
+            Toast.makeText(this, R.string.toast_open_settings_failed, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun openUsageAccessSettings() {
+        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        if (!tryStartSettingsActivity(intent)) {
+            Toast.makeText(this, R.string.toast_open_settings_failed, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun openBatterySettings() {
+        val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        if (!tryStartSettingsActivity(intent)) {
+            Toast.makeText(this, R.string.toast_open_settings_failed, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun openXiaomiAutostartSettings() {
+        val intents = listOf(
+            Intent().setComponent(
+                ComponentName(
+                    "com.miui.securitycenter",
+                    "com.miui.permcenter.autostart.AutoStartManagementActivity"
+                )
+            ),
+            Intent("miui.intent.action.OP_AUTO_START").addCategory(Intent.CATEGORY_DEFAULT),
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", packageName, null)
+            }
+        ).map { intent ->
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        if (intents.none { tryStartSettingsActivity(it) }) {
+            Toast.makeText(this, R.string.toast_open_settings_failed, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun openXiaomiOtherPermissionsSettings() {
+        val intents = listOf(
+            Intent("miui.intent.action.APP_PERM_EDITOR").apply {
+                setClassName(
+                    "com.miui.securitycenter",
+                    "com.miui.permcenter.permissions.PermissionsEditorActivity"
+                )
+                putExtra("extra_pkgname", packageName)
+            },
+            Intent("miui.intent.action.APP_PERM_EDITOR").apply {
+                setClassName(
+                    "com.miui.securitycenter",
+                    "com.miui.permcenter.permissions.AppPermissionsEditorActivity"
+                )
+                putExtra("extra_pkgname", packageName)
+            },
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", packageName, null)
+            }
+        ).map { intent ->
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        if (intents.none { tryStartSettingsActivity(it) }) {
+            Toast.makeText(this, R.string.toast_open_settings_failed, Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun applyCurrentPolicies() {
         policyManager.applyDeviceOwnerPolicies(
             allowedPackages = preferences.getAllowedPackages(),
-            lockdownEnabled = preferences.isLockdownEnabled()
+            restrictionMode = preferences.getEffectiveRestrictionMode()
         )
     }
 
@@ -452,8 +634,11 @@ class MainActivity : Activity() {
     private fun fallbackProtectionSection(): View {
         val deviceAdminStatus = if (policyManager.isDeviceAdminActive()) getString(R.string.status_enabled) else getString(R.string.status_disabled)
         val accessibilityStatus = if (isAccessibilityProtectionEnabled()) getString(R.string.status_enabled) else getString(R.string.status_disabled)
+        val overlayStatus = if (hasOverlayPermission()) getString(R.string.status_enabled) else getString(R.string.status_disabled)
+        val usageStatus = if (hasUsageAccess()) getString(R.string.status_enabled) else getString(R.string.status_disabled)
         val callStatus = if (hasCallPermission()) getString(R.string.status_calls_allowed) else getString(R.string.status_calls_not_allowed)
         val locationStatus = if (hasLocationPermission()) getString(R.string.status_allowed) else getString(R.string.status_not_allowed)
+        val flashlightStatus = if (hasFlashlightPermission()) getString(R.string.status_allowed) else getString(R.string.status_not_allowed)
 
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -462,8 +647,11 @@ class MainActivity : Activity() {
                     R.string.fallback_status,
                     deviceAdminStatus,
                     accessibilityStatus,
+                    overlayStatus,
+                    usageStatus,
                     callStatus,
-                    locationStatus
+                    locationStatus,
+                    flashlightStatus
                 )
             ))
             addView(adminActionButton(getString(R.string.button_enable_device_admin)) {
@@ -474,14 +662,38 @@ class MainActivity : Activity() {
                 preferences.markAdminSessionUnlocked()
                 openAccessibilityServiceSettings()
             }, matchWrapParams(top = 8))
+            addView(adminActionButton(getString(R.string.button_allow_overlay)) {
+                preferences.markAdminSessionUnlocked()
+                openOverlayPermissionSettings()
+            }, matchWrapParams(top = 8))
+            addView(adminActionButton(getString(R.string.button_open_xiaomi_other_permissions)) {
+                preferences.markAdminSessionUnlocked()
+                openXiaomiOtherPermissionsSettings()
+            }, matchWrapParams(top = 8))
+            addView(adminActionButton(getString(R.string.button_open_usage_access)) {
+                preferences.markAdminSessionUnlocked()
+                openUsageAccessSettings()
+            }, matchWrapParams(top = 8))
             addView(infoText(getString(R.string.restricted_settings_help)), matchWrapParams(top = 10))
             addView(adminActionButton(getString(R.string.button_open_restricted_settings)) {
                 preferences.markAdminSessionUnlocked()
                 openOwnAppSettings(showErrorToast = true)
             }, matchWrapParams(top = 8))
+            addView(adminActionButton(getString(R.string.button_open_xiaomi_autostart)) {
+                preferences.markAdminSessionUnlocked()
+                openXiaomiAutostartSettings()
+            }, matchWrapParams(top = 8))
+            addView(adminActionButton(getString(R.string.button_open_battery_settings)) {
+                preferences.markAdminSessionUnlocked()
+                openBatterySettings()
+            }, matchWrapParams(top = 8))
             addView(adminActionButton(getString(R.string.button_allow_calls)) {
                 preferences.markAdminSessionUnlocked()
                 requestPermissions(arrayOf(Manifest.permission.CALL_PHONE), REQUEST_CALL_PHONE)
+            }, matchWrapParams(top = 8))
+            addView(adminActionButton(getString(R.string.button_allow_flashlight)) {
+                preferences.markAdminSessionUnlocked()
+                requestPermissions(arrayOf(Manifest.permission.CAMERA), REQUEST_CAMERA)
             }, matchWrapParams(top = 8))
             addView(adminActionButton(getString(R.string.button_allow_location)) {
                 preferences.markAdminSessionUnlocked()
@@ -926,6 +1138,55 @@ class MainActivity : Activity() {
         return row
     }
 
+    private fun flashlightCard(): View {
+        val row = homeCardContainer(minHeightDp = 76, radiusDp = 22).apply {
+            isClickable = true
+            isFocusable = true
+            contentDescription = getString(R.string.home_flashlight_content_description)
+            setOnClickListener { toggleFlashlight() }
+        }
+        val icon = TextView(this).apply {
+            text = "!"
+            textSize = 22f
+            gravity = Gravity.CENTER
+            setTextColor(HomeCageColors.Background)
+            typeface = Typeface.DEFAULT_BOLD
+            background = roundedBackground(
+                if (torchEnabled) HomeCageColors.AccentGreen else HomeCageColors.CardRaised,
+                HomeCageColors.AccentGreen,
+                radiusDp = 16
+            )
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+        val textColumn = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        val title = TextView(this).apply {
+            text = getString(R.string.home_flashlight_title)
+            textSize = 17f
+            setTextColor(HomeCageColors.TextPrimary)
+            typeface = Typeface.DEFAULT_BOLD
+            maxLines = 1
+        }
+        val subtitle = TextView(this).apply {
+            text = getString(
+                if (torchEnabled) R.string.home_flashlight_on else R.string.home_flashlight_off
+            )
+            textSize = 12f
+            setTextColor(HomeCageColors.TextSecondary)
+            maxLines = 1
+        }
+        textColumn.addView(title)
+        textColumn.addView(subtitle)
+
+        row.addView(icon, LinearLayout.LayoutParams(dp(52), dp(52)).apply {
+            marginEnd = dp(14)
+        })
+        row.addView(textColumn, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(chevronView())
+        return row
+    }
+
     private fun emptyStateCard(text: String): View =
         homeCardContainer(minHeightDp = 72, radiusDp = 22).apply {
             addView(TextView(this@MainActivity).apply {
@@ -936,20 +1197,37 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         }
 
-    private fun lockdownCard(): View =
+    private fun restrictionCard(mode: RestrictionMode): View =
         homeCardContainer(minHeightDp = 180, radiusDp = 24).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_VERTICAL
-            background = roundedBackground(HomeCageColors.CardRaised, HomeCageColors.WarningRed, radiusDp = 24)
+            val borderColor = if (mode == RestrictionMode.LOST) {
+                HomeCageColors.WarningRed
+            } else {
+                HomeCageColors.AccentGreen
+            }
+            background = roundedBackground(HomeCageColors.CardRaised, borderColor, radiusDp = 24)
             addView(TextView(this@MainActivity).apply {
-                text = getString(R.string.home_lockdown_title)
+                text = getString(
+                    if (mode == RestrictionMode.LOST) {
+                        R.string.home_lockdown_title
+                    } else {
+                        R.string.home_parental_restriction_title
+                    }
+                )
                 textSize = 22f
                 setTextColor(HomeCageColors.TextPrimary)
                 typeface = Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(TextView(this@MainActivity).apply {
-                text = getString(R.string.home_lockdown_message)
+                text = getString(
+                    if (mode == RestrictionMode.LOST) {
+                        R.string.home_lockdown_message
+                    } else {
+                        R.string.home_parental_restriction_message
+                    }
+                )
                 textSize = 15f
                 setTextColor(HomeCageColors.TextSecondary)
                 gravity = Gravity.CENTER
@@ -1270,6 +1548,7 @@ class MainActivity : Activity() {
         const val ACTION_ACCESSIBILITY_DETAILS_SETTINGS = "android.settings.ACCESSIBILITY_DETAILS_SETTINGS"
         const val REQUEST_CALL_PHONE = 4101
         const val REQUEST_LOCATION = 4102
+        const val REQUEST_CAMERA = 4103
         const val STATUS_SEPARATOR = "\u00b7"
         val COLOR_BACKGROUND: Int = Color.rgb(248, 250, 252)
         val COLOR_SURFACE: Int = Color.WHITE

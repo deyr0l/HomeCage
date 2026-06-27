@@ -62,12 +62,15 @@ Device Owner normalmente requiere un dispositivo limpio antes de añadir cuentas
 | `ACCESS_NETWORK_STATE` | Programar sync solo cuando hay red disponible. |
 | `RECEIVE_BOOT_COMPLETED` | Reprogramar sync después de reiniciar. |
 | `CALL_PHONE` | Botones de llamada rápida. La app no lee contactos. |
+| `CAMERA` | Botón de linterna dentro de HomeCage. Solo usa el modo linterna; no captura imágenes. |
 | `ACCESS_COARSE_LOCATION` / `ACCESS_FINE_LOCATION` | Reporte opcional de ubicación cuando el servidor lo solicita. |
+| `PACKAGE_USAGE_STATS` | Capa opcional para modo consumer: segunda señal de app en primer plano cuando Accessibility es incompleto. |
+| `SYSTEM_ALERT_WINDOW` | Capa opcional para modo consumer: permite usar overlay normal de Android para la pantalla de bloqueo. |
 | Device Admin / Device Owner | Evita que el niño quite la protección sin PIN y permite Lock Task. |
 | Accessibility service | Protección alternativa: detecta el paquete en primer plano y vuelve a HomeCage si la pantalla no está permitida. |
 | Visibilidad de apps launcher | Lista apps instaladas en la admin. No es `QUERY_ALL_PACKAGES`. |
 
-No se usa: Usage Access (`PACKAGE_USAGE_STATS`), draw-over-other-apps (`SYSTEM_ALERT_WINDOW`), contactos, SMS, cámara, micrófono, notification listener, VPN ni `QUERY_ALL_PACKAGES`.
+No se usa: contactos, SMS, captura de cámara, micrófono, notification listener, VPN ni `QUERY_ALL_PACKAGES`.
 
 ## Accessibility y restricted settings
 

@@ -1,12 +1,18 @@
 package com.homecage.kiosk.sync
 
+import android.Manifest
+import android.app.AppOpsManager
+import android.content.ComponentName
 import android.content.Context
+import android.content.pm.PackageManager
 import android.provider.Settings
 import com.homecage.kiosk.R
 import com.homecage.kiosk.admin.KioskPolicyManager
 import com.homecage.kiosk.data.AppRepository
 import com.homecage.kiosk.data.KioskPreferences
 import com.homecage.kiosk.locale.AppLocaleManager
+import com.homecage.kiosk.protection.KioskAccessibilityService
+import com.homecage.kiosk.protection.RestrictionScheduleReceiver
 
 class ConfigSyncer(private val context: Context) {
     private val appContext = context.applicationContext
@@ -20,7 +26,12 @@ class ConfigSyncer(private val context: Context) {
         return nowMillis - preferences.getLastSyncAttemptAt() >= MIN_SYNC_INTERVAL_MS
     }
 
-    fun sync(force: Boolean = false): ConfigSyncResult {
+    fun sync(force: Boolean = false): ConfigSyncResult =
+        synchronized(SYNC_LOCK) {
+            syncLocked(force)
+        }
+
+    private fun syncLocked(force: Boolean = false): ConfigSyncResult {
         val now = System.currentTimeMillis()
         preferences.markSyncAttempt(now)
 
@@ -46,25 +57,39 @@ class ConfigSyncer(private val context: Context) {
                 deviceName = deviceName,
                 installedApps = installedApps,
                 localAllowedPackages = localAllowedPackagesBeforeSync,
-                lockdownEnabled = preferences.isLockdownEnabled(),
-                location = null
+                restrictionMode = preferences.getEffectiveRestrictionMode(),
+                location = null,
+                appliedConfigUpdatedAt = preferences.getLastAppliedRemoteConfigUpdatedAt(),
+                configApplyStatus = preferences.getLastRemoteConfigApplyStatus(),
+                protectionHealth = protectionHealth()
             )
 
             val remoteConfig = client.fetchConfig(deviceId, deviceName)
 
-            if (!force && (preferences.isAdminSessionUnlocked() ||
-                    preferences.getPolicyRevision() != revisionBeforeSync)) {
-                return@runCatching ConfigSyncResult(success = true, message = "")
-            }
-
             val launchableNames = installedApps.map { it.packageName }.toSet()
             val manualPackages = remoteConfig.allowedPackages.filter { it !in launchableNames }.toSet()
-            preferences.updatePolicy(remoteConfig.allowedPackages, manualPackages)
-            preferences.setLockdownEnabled(remoteConfig.lockdownEnabled)
+
+            val canApplyAllowedPackages =
+                (force || !preferences.isAdminSessionUnlocked()) &&
+                    preferences.updatePolicyIfRevisionUnchanged(
+                        expectedRevision = revisionBeforeSync,
+                        allowedPackages = remoteConfig.allowedPackages,
+                        manualPackages = manualPackages
+                    )
+            val applyStatus = if (canApplyAllowedPackages) {
+                CONFIG_APPLY_STATUS_APPLIED
+            } else {
+                CONFIG_APPLY_STATUS_SKIPPED_LOCAL_CHANGE
+            }
+
+            preferences.setRestrictionMode(remoteConfig.restrictionMode)
+            preferences.setScheduleRules(remoteConfig.scheduleRules)
+            preferences.markRemoteConfigApplyResult(remoteConfig.updatedAt, applyStatus)
             remoteConfig.pin?.let { preferences.setPin(it) }
+            RestrictionScheduleReceiver.scheduleNext(appContext)
             KioskPolicyManager(appContext).applyDeviceOwnerPolicies(
-                allowedPackages = remoteConfig.allowedPackages,
-                lockdownEnabled = remoteConfig.lockdownEnabled
+                allowedPackages = preferences.getAllowedPackages(),
+                restrictionMode = preferences.getEffectiveRestrictionMode()
             )
 
             val locationReport = locationReportFor(remoteConfig.locationRequestId)
@@ -73,8 +98,11 @@ class ConfigSyncer(private val context: Context) {
                 deviceName = deviceName,
                 installedApps = installedApps,
                 localAllowedPackages = preferences.getAllowedPackages(),
-                lockdownEnabled = preferences.isLockdownEnabled(),
-                location = locationReport
+                restrictionMode = preferences.getEffectiveRestrictionMode(),
+                location = locationReport,
+                appliedConfigUpdatedAt = remoteConfig.updatedAt,
+                configApplyStatus = applyStatus,
+                protectionHealth = protectionHealth()
             )
             if (locationReport != null) {
                 preferences.setHandledLocationRequestId(locationReport.requestId)
@@ -107,7 +135,53 @@ class ConfigSyncer(private val context: Context) {
         return DeviceLocationProvider(appContext).reportForRequest(locationRequestId)
     }
 
+    private fun protectionHealth(): ProtectionHealthReport {
+        val policyManager = KioskPolicyManager(appContext)
+        return ProtectionHealthReport(
+            deviceOwnerEnabled = policyManager.isDeviceOwner(),
+            deviceAdminEnabled = policyManager.isDeviceAdminActive(),
+            accessibilityEnabled = isAccessibilityProtectionEnabled(),
+            overlayEnabled = Settings.canDrawOverlays(appContext),
+            usageAccessEnabled = hasUsageAccess(),
+            callPermissionGranted = hasPermission(Manifest.permission.CALL_PHONE),
+            locationPermissionGranted =
+                hasPermission(Manifest.permission.ACCESS_FINE_LOCATION) ||
+                    hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION),
+            flashlightPermissionGranted = hasPermission(Manifest.permission.CAMERA)
+        )
+    }
+
+    private fun hasPermission(permission: String): Boolean =
+        appContext.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+
+    private fun isAccessibilityProtectionEnabled(): Boolean {
+        val enabledServices = Settings.Secure.getString(
+            appContext.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ).orEmpty()
+        val expected = ComponentName(appContext, KioskAccessibilityService::class.java)
+        return enabledServices.split(':').any { rawComponent ->
+            val component = ComponentName.unflattenFromString(rawComponent)
+            component?.packageName == expected.packageName &&
+                component.className == expected.className
+        }
+    }
+
+    private fun hasUsageAccess(): Boolean {
+        val appOpsManager = appContext.getSystemService(AppOpsManager::class.java) ?: return false
+        @Suppress("DEPRECATION")
+        val mode = appOpsManager.checkOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS,
+            appContext.applicationInfo.uid,
+            appContext.packageName
+        )
+        return mode == AppOpsManager.MODE_ALLOWED
+    }
+
     companion object {
         const val MIN_SYNC_INTERVAL_MS = 10 * 60 * 1000L
+        const val CONFIG_APPLY_STATUS_APPLIED = "applied"
+        const val CONFIG_APPLY_STATUS_SKIPPED_LOCAL_CHANGE = "skipped_local_change"
+        val SYNC_LOCK = Any()
     }
 }
