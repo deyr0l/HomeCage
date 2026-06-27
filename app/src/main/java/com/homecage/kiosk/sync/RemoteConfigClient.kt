@@ -3,6 +3,7 @@ package com.homecage.kiosk.sync
 import com.homecage.kiosk.data.LaunchableApp
 import com.homecage.kiosk.data.RestrictionMode
 import com.homecage.kiosk.data.RestrictionScheduleRule
+import com.homecage.kiosk.data.SecurityEventReport
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -82,6 +83,18 @@ class RemoteConfigClient(
             }
         }
         request(path = "/api/device-state", method = "POST", body = payload.toString())
+    }
+
+    fun reportSecurityEvent(
+        deviceId: String,
+        deviceName: String,
+        report: SecurityEventReport
+    ) {
+        val payload = report.toJson().apply {
+            put("deviceId", deviceId)
+            put("deviceName", deviceName)
+        }
+        request(path = "/api/security-events", method = "POST", body = payload.toString())
     }
 
     fun fetchConfig(deviceId: String, deviceName: String): RemoteKioskConfig {

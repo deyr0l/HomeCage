@@ -52,6 +52,8 @@ class ConfigSyncer(private val context: Context) {
             val deviceName = preferences.getDeviceName()
             val localAllowedPackagesBeforeSync = preferences.getAllowedPackages()
 
+            SecurityTrailReporter(appContext).flushPending(client, deviceId, deviceName)
+
             client.reportDeviceState(
                 deviceId = deviceId,
                 deviceName = deviceName,

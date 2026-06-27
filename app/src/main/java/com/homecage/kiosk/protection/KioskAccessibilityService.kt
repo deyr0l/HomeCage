@@ -27,7 +27,9 @@ import com.homecage.kiosk.MainActivity
 import com.homecage.kiosk.R
 import com.homecage.kiosk.data.KioskPreferences
 import com.homecage.kiosk.data.RestrictionMode
+import com.homecage.kiosk.data.SecurityTrailEntry
 import com.homecage.kiosk.locale.AppLocaleManager
+import com.homecage.kiosk.sync.SecurityTrailReporter
 import kotlin.math.roundToInt
 
 class KioskAccessibilityService : AccessibilityService() {
@@ -44,48 +46,87 @@ class KioskAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val packageName = event?.packageName?.toString() ?: return
         if (packageName.isBlank()) return
+        val className = event.className?.toString().orEmpty()
 
         val preferences = KioskPreferences(this)
         if (
             preferences.isAdminSessionUnlocked() &&
             KioskPackagePolicy.isAdminSetupPackage(packageName)
         ) {
+            rememberTrailEvent(event, packageName, className, preferences, DECISION_ALLOWED_ADMIN_SETUP)
             clearBlock()
             return
         }
 
         if (packageName == this.packageName) {
+            rememberTrailEvent(event, packageName, className, preferences, DECISION_ALLOWED_SELF)
             clearBlock()
             return
         }
 
-        if (KioskPackagePolicy.isBlockedSystemSurface(packageName, event.className?.toString())) {
-            blockPackage(packageName)
+        if (KioskPackagePolicy.isBlockedSystemSurface(packageName, className)) {
+            val trail = rememberTrailEvent(
+                event,
+                packageName,
+                className,
+                preferences,
+                DECISION_BLOCKED_SYSTEM_SURFACE
+            )
+            blockPackage(packageName, className, REASON_BLOCKED_SYSTEM_SURFACE, trail)
             return
         }
 
         if (packageName in KioskPackagePolicy.blockedSystemPackages) {
-            blockPackage(packageName)
+            val trail = rememberTrailEvent(
+                event,
+                packageName,
+                className,
+                preferences,
+                DECISION_BLOCKED_SYSTEM_PACKAGE
+            )
+            blockPackage(packageName, className, REASON_BLOCKED_SYSTEM_PACKAGE, trail)
             return
         }
 
         if (isTransientPackage(packageName, preferences)) {
             if (verifyForegroundAllowed(preferences)) {
+                rememberTrailEvent(
+                    event,
+                    packageName,
+                    className,
+                    preferences,
+                    DECISION_ALLOWED_TRANSIENT_WITH_ANCHOR
+                )
                 if (lastBlockedPackage != null) clearBlock()
                 return
             }
-            blockPackage(packageName)
+            val trail = rememberTrailEvent(
+                event,
+                packageName,
+                className,
+                preferences,
+                DECISION_BLOCKED_TRANSIENT_WITHOUT_ANCHOR
+            )
+            blockPackage(packageName, className, REASON_TRANSIENT_WITHOUT_ALLOWED_ANCHOR, trail)
             return
         }
 
         if (isAllowedPackage(packageName, preferences)) {
+            rememberTrailEvent(event, packageName, className, preferences, DECISION_ALLOWED_EXPLICIT)
             if (lastBlockedPackage != null && verifyForegroundAllowed(preferences)) {
                 clearBlock()
             }
             return
         }
 
-        blockPackage(packageName)
+        val trail = rememberTrailEvent(
+            event,
+            packageName,
+            className,
+            preferences,
+            DECISION_BLOCKED_NOT_ALLOWED
+        )
+        blockPackage(packageName, className, REASON_PACKAGE_NOT_EXPLICITLY_ALLOWED, trail)
     }
 
     override fun onInterrupt() = Unit
@@ -231,11 +272,46 @@ class KioskAccessibilityService : AccessibilityService() {
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
         }
 
-    private fun blockPackage(packageName: String) {
+    private fun rememberTrailEvent(
+        event: AccessibilityEvent,
+        packageName: String,
+        className: String,
+        preferences: KioskPreferences,
+        decision: String
+    ): List<SecurityTrailEntry> =
+        preferences.rememberSecurityTrailEntry(
+            SecurityTrailEntry(
+                atMillis = System.currentTimeMillis(),
+                eventType = eventTypeName(event.eventType),
+                packageName = packageName.take(MAX_SECURITY_FIELD_LENGTH),
+                className = className.take(MAX_SECURITY_FIELD_LENGTH),
+                decision = decision,
+                restrictionMode = preferences.getEffectiveRestrictionMode().wireValue
+            )
+        )
+
+    private fun eventTypeName(eventType: Int): String =
+        runCatching { AccessibilityEvent.eventTypeToString(eventType) }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: eventType.toString()
+
+    private fun blockPackage(
+        packageName: String,
+        className: String,
+        reason: String,
+        trail: List<SecurityTrailEntry>
+    ) {
         val now = SystemClock.elapsedRealtime()
         val shouldRefreshOverlay = packageName != lastBlockedPackage || overlayView == null
         if (shouldRefreshOverlay) {
             lastBlockedPackage = packageName
+            SecurityTrailReporter(this).reportAsync(
+                triggerPackage = packageName,
+                triggerClassName = className.take(MAX_SECURITY_FIELD_LENGTH),
+                reason = reason,
+                trail = trail
+            )
             showOverlay(packageName)
         }
 
@@ -347,5 +423,18 @@ class KioskAccessibilityService : AccessibilityService() {
         const val WATCHDOG_INTERVAL_MS = 500L
         const val MAX_WATCHDOG_ATTEMPTS = 5
         const val USAGE_LOOKBACK_MS = 30_000L
+        const val MAX_SECURITY_FIELD_LENGTH = 180
+        const val DECISION_ALLOWED_ADMIN_SETUP = "allowed_admin_setup"
+        const val DECISION_ALLOWED_SELF = "allowed_self"
+        const val DECISION_ALLOWED_EXPLICIT = "allowed_explicit"
+        const val DECISION_ALLOWED_TRANSIENT_WITH_ANCHOR = "allowed_transient_with_anchor"
+        const val DECISION_BLOCKED_SYSTEM_SURFACE = "blocked_system_surface"
+        const val DECISION_BLOCKED_SYSTEM_PACKAGE = "blocked_system_package"
+        const val DECISION_BLOCKED_TRANSIENT_WITHOUT_ANCHOR = "blocked_transient_without_anchor"
+        const val DECISION_BLOCKED_NOT_ALLOWED = "blocked_not_explicitly_allowed"
+        const val REASON_BLOCKED_SYSTEM_SURFACE = "blocked_system_surface"
+        const val REASON_BLOCKED_SYSTEM_PACKAGE = "blocked_system_package"
+        const val REASON_TRANSIENT_WITHOUT_ALLOWED_ANCHOR = "transient_without_allowed_anchor"
+        const val REASON_PACKAGE_NOT_EXPLICITLY_ALLOWED = "package_not_explicitly_allowed"
     }
 }

@@ -33,6 +33,9 @@ RESTRICTION_PARENTAL = "parental"
 RESTRICTION_LOST = "lost"
 SUPPORTED_RESTRICTION_MODES = (RESTRICTION_NONE, RESTRICTION_PARENTAL, RESTRICTION_LOST)
 SUPPORTED_LANGUAGES = ("en", "ru", "es", "zh-CN", "ja")
+MAX_SECURITY_EVENTS = 50
+MAX_SECURITY_TRAIL_ENTRIES = 10
+MAX_SECURITY_FIELD_LENGTH = 180
 DATA_LOCK = threading.RLock()
 DAY_ALIASES = {
     "mon": 1,
@@ -109,6 +112,11 @@ MESSAGES = {
         "restriction_section": "Remote block mode",
         "schedule_help": "One rule per line: Mon-Fri 22:00-07:00 parental. Supported days: All, Weekdays, Weekends, Mon-Sun. Modes: parental or lost.",
         "schedule_section": "Scheduled block",
+        "security_events": "Security events",
+        "security_events_empty": "No blocked escape attempts reported yet.",
+        "security_event_reason": "Reason",
+        "security_event_trail": "Trail",
+        "security_event_trigger": "Trigger",
     },
     "ru": {
         "app_list_empty": "Телефон еще не прислал список приложений. Откройте HomeCage и нажмите синхронизацию.",
@@ -157,6 +165,11 @@ MESSAGES = {
         "restriction_section": "Режим удаленной блокировки",
         "schedule_help": "Одно правило на строку: Mon-Fri 22:00-07:00 parental. Дни: All, Weekdays, Weekends, Mon-Sun. Режимы: parental или lost.",
         "schedule_section": "Блокировка по расписанию",
+        "security_events": "События защиты",
+        "security_events_empty": "Заблокированные попытки обхода пока не передавались.",
+        "security_event_reason": "Причина",
+        "security_event_trail": "Цепочка",
+        "security_event_trigger": "Триггер",
     },
     "es": {
         "app_list_empty": "El teléfono aún no envió la lista de apps. Abre HomeCage y ejecuta la sincronización.",
@@ -205,6 +218,11 @@ MESSAGES = {
         "restriction_section": "Modo de bloqueo remoto",
         "schedule_help": "Una regla por línea: Mon-Fri 22:00-07:00 parental. Días: All, Weekdays, Weekends, Mon-Sun. Modos: parental o lost.",
         "schedule_section": "Bloqueo programado",
+        "security_events": "Eventos de seguridad",
+        "security_events_empty": "Aún no se reportaron intentos de evasión bloqueados.",
+        "security_event_reason": "Motivo",
+        "security_event_trail": "Secuencia",
+        "security_event_trigger": "Disparador",
     },
     "zh-CN": {
         "app_list_empty": "手机尚未上报应用列表。请打开 HomeCage 并执行同步。",
@@ -253,6 +271,11 @@ MESSAGES = {
         "restriction_section": "远程阻止模式",
         "schedule_help": "每行一条规则：Mon-Fri 22:00-07:00 parental。日期：All、Weekdays、Weekends、Mon-Sun。模式：parental 或 lost。",
         "schedule_section": "定时阻止",
+        "security_events": "安全事件",
+        "security_events_empty": "尚未报告被阻止的绕过尝试。",
+        "security_event_reason": "原因",
+        "security_event_trail": "轨迹",
+        "security_event_trigger": "触发项",
     },
     "ja": {
         "app_list_empty": "電話からアプリ一覧がまだ送信されていません。HomeCage を開いて同期してください。",
@@ -301,6 +324,11 @@ MESSAGES = {
         "restriction_section": "リモートブロックモード",
         "schedule_help": "1 行に 1 ルール: Mon-Fri 22:00-07:00 parental。曜日: All, Weekdays, Weekends, Mon-Sun。モード: parental または lost。",
         "schedule_section": "スケジュールブロック",
+        "security_events": "セキュリティイベント",
+        "security_events_empty": "ブロックされた回避試行はまだ報告されていません。",
+        "security_event_reason": "理由",
+        "security_event_trail": "履歴",
+        "security_event_trigger": "トリガー",
     },
 }
 
@@ -618,7 +646,9 @@ def default_device_state(device_id: str, device_name: str) -> dict[str, Any]:
         "lockdownEnabled": False,
         "appliedConfigUpdatedAt": "",
         "configApplyStatus": "",
+        "protectionHealth": {},
         "location": None,
+        "securityEvents": [],
     }
 
 
@@ -1151,6 +1181,124 @@ def normalize_protection_health(raw_health: Any) -> dict[str, bool]:
     }
 
 
+def bounded_security_text(value: Any) -> str:
+    return str(value or "").strip()[:MAX_SECURITY_FIELD_LENGTH]
+
+
+def millis_to_iso(raw_millis: Any) -> str:
+    millis = parse_int(raw_millis)
+    if millis <= 0:
+        return ""
+    return datetime.fromtimestamp(millis / 1000, tz=timezone.utc).isoformat()
+
+
+def normalize_security_trail_entry(raw_entry: Any) -> dict[str, Any] | None:
+    """Keep only technical routing metadata from the Android Accessibility trail."""
+    if not isinstance(raw_entry, dict):
+        return None
+    package_name = bounded_security_text(raw_entry.get("packageName"))
+    if not package_name:
+        return None
+    at_millis = max(0, parse_int(raw_entry.get("atMillis")))
+    return {
+        "atMillis": at_millis,
+        "at": millis_to_iso(at_millis),
+        "eventType": bounded_security_text(raw_entry.get("eventType")),
+        "packageName": package_name,
+        "className": bounded_security_text(raw_entry.get("className")),
+        "decision": bounded_security_text(raw_entry.get("decision")),
+        "restrictionMode": bounded_security_text(raw_entry.get("restrictionMode")),
+    }
+
+
+def normalize_security_event_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
+    trigger_package = bounded_security_text(payload.get("triggerPackage"))
+    if not trigger_package:
+        return None
+    raw_trail = payload.get("trail") if isinstance(payload.get("trail"), list) else []
+    trail = [
+        entry
+        for entry in (
+            normalize_security_trail_entry(raw_entry)
+            for raw_entry in raw_trail[-MAX_SECURITY_TRAIL_ENTRIES:]
+        )
+        if entry is not None
+    ]
+    reported_at_millis = max(0, parse_int(payload.get("reportedAtMillis")))
+    return {
+        "receivedAt": utc_now(),
+        "reportedAtMillis": reported_at_millis,
+        "reportedAt": millis_to_iso(reported_at_millis),
+        "triggerPackage": trigger_package,
+        "triggerClassName": bounded_security_text(payload.get("triggerClassName")),
+        "reason": bounded_security_text(payload.get("reason")),
+        "trail": trail,
+    }
+
+
+def append_security_event(device: dict[str, Any], event: dict[str, Any]) -> None:
+    state = device.get("state") if isinstance(device.get("state"), dict) else {}
+    if not isinstance(state, dict):
+        state = {}
+    state.setdefault("deviceId", device.get("deviceId"))
+    state.setdefault("deviceName", device.get("name"))
+    events = state.get("securityEvents") if isinstance(state.get("securityEvents"), list) else []
+    state["securityEvents"] = (events + [event])[-MAX_SECURITY_EVENTS:]
+    device["state"] = state
+
+
+def security_events_html(device_state: dict[str, Any], language: str) -> str:
+    events = device_state.get("securityEvents")
+    if not isinstance(events, list) or not events:
+        return f"<p class='muted'>{html.escape(message(language, 'security_events_empty'))}</p>"
+
+    blocks = []
+    for event in reversed(events[-5:]):
+        if not isinstance(event, dict):
+            continue
+        trigger = html.escape(str(event.get("triggerPackage") or ""))
+        reason = html.escape(str(event.get("reason") or ""))
+        received_at = html.escape(str(event.get("receivedAt") or ""))
+        trigger_class = html.escape(str(event.get("triggerClassName") or ""))
+        trail = event.get("trail") if isinstance(event.get("trail"), list) else []
+        trail_items = []
+        for entry in trail:
+            if not isinstance(entry, dict):
+                continue
+            package_name = html.escape(str(entry.get("packageName") or ""))
+            class_name = html.escape(str(entry.get("className") or ""))
+            event_type = html.escape(str(entry.get("eventType") or ""))
+            decision = html.escape(str(entry.get("decision") or ""))
+            mode = html.escape(str(entry.get("restrictionMode") or ""))
+            at = html.escape(str(entry.get("at") or ""))
+            trail_items.append(
+                f"""
+                <li>
+                  <code>{package_name}</code>
+                  <small>{class_name}<br>{event_type} · {decision} · {mode} · {at}</small>
+                </li>
+                """
+            )
+        trail_html = "\n".join(trail_items)
+        blocks.append(
+            f"""
+            <details class="security-event">
+              <summary><strong>{trigger}</strong> · {reason} · {received_at}</summary>
+              <p class="muted">
+                <strong>{html.escape(message(language, "security_event_trigger"))}:</strong>
+                {trigger}<br>
+                <strong>{html.escape(message(language, "security_event_reason"))}:</strong>
+                {reason}<br>
+                <small>{trigger_class}</small>
+              </p>
+              <strong>{html.escape(message(language, "security_event_trail"))}</strong>
+              <ol class="trail-list">{trail_html}</ol>
+            </details>
+            """
+        )
+    return "\n".join(blocks) or f"<p class='muted'>{html.escape(message(language, 'security_events_empty'))}</p>"
+
+
 def render_admin_page(
     config: Config,
     device_state: dict[str, Any],
@@ -1197,6 +1345,7 @@ def render_admin_page(
     location_request_html = location_request_summary(config, device_state, language)
     config_apply_html = config_apply_summary(config, device_state, language)
     protection_health_html = protection_health_summary(device_state, language)
+    security_events = security_events_html(device_state, language)
     restriction_options = restriction_mode_options(config, language)
     schedule_rules_text = html.escape(schedule_rules_to_text(config.schedule_rules))
     page_title = html.escape(message(language, "title"))
@@ -1372,10 +1521,33 @@ def render_admin_page(
       padding: 12px 16px;
       cursor: pointer;
     }}
-    .muted {{
-      color: #64748b;
-    }}
-  </style>
+	    .muted {{
+	      color: #64748b;
+	    }}
+	    .security-event {{
+	      border: 1px solid #e5e7eb;
+	      border-radius: 8px;
+	      padding: 10px;
+	      margin: 8px 0;
+	    }}
+	    .security-event summary {{
+	      cursor: pointer;
+	      word-break: break-word;
+	    }}
+	    .trail-list {{
+	      display: grid;
+	      gap: 8px;
+	      padding-left: 22px;
+	    }}
+	    .trail-list code {{
+	      word-break: break-word;
+	    }}
+	    .trail-list small {{
+	      display: block;
+	      color: #64748b;
+	      word-break: break-word;
+	    }}
+	  </style>
 </head>
 <body>
   <header>
@@ -1423,12 +1595,16 @@ def render_admin_page(
 	      </section>
 	      <section class="panel">
 	        <h2>{html.escape(message(language, "location_request"))}</h2>
-        <p class="muted">{location_request_html}</p>
-        <p class="muted"><strong>{html.escape(message(language, "latest_location"))}:</strong><br>{location_html}</p>
-        <button type="submit" name="action" value="requestLocation">{html.escape(message(language, "request_location"))}</button>
-      </section>
-      <section class="panel">
-        <h2>{html.escape(message(language, "pin_section"))}</h2>
+	        <p class="muted">{location_request_html}</p>
+	        <p class="muted"><strong>{html.escape(message(language, "latest_location"))}:</strong><br>{location_html}</p>
+	        <button type="submit" name="action" value="requestLocation">{html.escape(message(language, "request_location"))}</button>
+	      </section>
+	      <section class="panel">
+	        <h2>{html.escape(message(language, "security_events"))}</h2>
+	        {security_events}
+	      </section>
+	      <section class="panel">
+	        <h2>{html.escape(message(language, "pin_section"))}</h2>
         <label class="field">
           {pin_label}
           <input type="password" name="pin" inputmode="numeric" pattern="[0-9]{{4,12}}">
@@ -1662,6 +1838,11 @@ async def api_device_state(request: Request) -> Response:
             or previous_state.get("protectionHealth")
             or {}
         )
+        security_events = (
+            previous_state.get("securityEvents")
+            if isinstance(previous_state.get("securityEvents"), list)
+            else []
+        )
         state = {
             "deviceId": device_id,
             "deviceName": device_name,
@@ -1675,9 +1856,40 @@ async def api_device_state(request: Request) -> Response:
             "configApplyStatus": config_apply_status,
             "protectionHealth": protection_health,
             "location": location,
+            "securityEvents": security_events[-MAX_SECURITY_EVENTS:],
         }
         device["name"] = device_name
         device["state"] = state
+        write_devices_store(store)
+    return Response(content=json.dumps({"ok": True}), media_type="application/json")
+
+
+@post("/api/security-events", status_code=200)
+async def api_security_event(request: Request) -> Response:
+    if not is_authorized(request):
+        return unauthorized()
+
+    payload = await request.json()
+    if not isinstance(payload, dict):
+        return Response(
+            content="invalid payload",
+            status_code=400,
+            media_type="text/plain",
+        )
+    event = normalize_security_event_payload(payload)
+    if event is None:
+        return Response(
+            content="triggerPackage is required",
+            status_code=400,
+            media_type="text/plain",
+        )
+
+    device_id = normalize_device_id(payload.get("deviceId"))
+    device_name = normalize_device_name(payload.get("deviceName"), device_id)
+    with DATA_LOCK:
+        store = read_devices_store()
+        device = ensure_device(store, device_id, device_name)
+        append_security_event(device, event)
         write_devices_store(store)
     return Response(content=json.dumps({"ok": True}), media_type="application/json")
 
@@ -1691,6 +1903,7 @@ app = Litestar(
         api_update_config,
         api_get_device_state,
         api_device_state,
+        api_security_event,
     ]
 )
 

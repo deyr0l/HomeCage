@@ -239,6 +239,45 @@ class KioskPreferences(private val context: Context) {
             .apply()
     }
 
+    fun rememberSecurityTrailEntry(entry: SecurityTrailEntry): List<SecurityTrailEntry> =
+        synchronized(SECURITY_TRAIL_LOCK) {
+            val updatedTrail = (getRecentSecurityTrail() + entry).takeLast(MAX_RECENT_SECURITY_TRAIL)
+            preferences.edit()
+                .putString(KEY_RECENT_SECURITY_TRAIL, SecurityTrailEntry.toJson(updatedTrail))
+                .apply()
+            updatedTrail
+        }
+
+    fun getRecentSecurityTrail(): List<SecurityTrailEntry> =
+        SecurityTrailEntry.fromJson(
+            preferences.getString(KEY_RECENT_SECURITY_TRAIL, "[]").orEmpty()
+        )
+
+    fun enqueueSecurityEvent(report: SecurityEventReport) {
+        synchronized(SECURITY_TRAIL_LOCK) {
+            val updatedReports = (getPendingSecurityEvents() + report).takeLast(MAX_PENDING_SECURITY_EVENTS)
+            preferences.edit()
+                .putString(KEY_PENDING_SECURITY_EVENTS, SecurityEventReport.toJson(updatedReports))
+                .commit()
+        }
+    }
+
+    fun getPendingSecurityEvents(): List<SecurityEventReport> =
+        SecurityEventReport.fromJson(
+            preferences.getString(KEY_PENDING_SECURITY_EVENTS, "[]").orEmpty()
+        )
+
+    fun replacePendingSecurityEvents(reports: List<SecurityEventReport>) {
+        synchronized(SECURITY_TRAIL_LOCK) {
+            preferences.edit()
+                .putString(
+                    KEY_PENDING_SECURITY_EVENTS,
+                    SecurityEventReport.toJson(reports.takeLast(MAX_PENDING_SECURITY_EVENTS))
+                )
+                .commit()
+        }
+    }
+
     fun markAdminSessionUnlocked(durationMillis: Long = ADMIN_SESSION_DURATION_MS) {
         preferences.edit()
             .putLong(KEY_ADMIN_SESSION_UNTIL, System.currentTimeMillis() + durationMillis)
@@ -322,11 +361,16 @@ class KioskPreferences(private val context: Context) {
         const val KEY_HANDLED_LOCATION_REQUEST_ID = "handled_location_request_id"
         const val KEY_LAST_APPLIED_REMOTE_CONFIG_UPDATED_AT = "last_applied_remote_config_updated_at"
         const val KEY_LAST_REMOTE_CONFIG_APPLY_STATUS = "last_remote_config_apply_status"
+        const val KEY_RECENT_SECURITY_TRAIL = "recent_security_trail"
+        const val KEY_PENDING_SECURITY_EVENTS = "pending_security_events"
         const val DEFAULT_SERVER_URL = ""
         const val ADMIN_SESSION_DURATION_MS = 5 * 60 * 1000L
         const val QUICK_CALL_SESSION_DURATION_MS = 15 * 60 * 1000L
+        const val MAX_RECENT_SECURITY_TRAIL = 10
+        const val MAX_PENDING_SECURITY_EVENTS = 20
         const val PIN_HASH_ITERATIONS = 80_000
         const val PIN_HASH_BITS = 256
         val POLICY_LOCK = Any()
+        val SECURITY_TRAIL_LOCK = Any()
     }
 }
