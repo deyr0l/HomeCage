@@ -66,7 +66,12 @@ class ConfigSyncer(private val context: Context) {
                 protectionHealth = protectionHealth()
             )
 
-            val remoteConfig = client.fetchConfig(deviceId, deviceName)
+            // Validate the entire response before changing any local policy or PIN.
+            val remoteConfig = client.fetchConfig(
+                deviceId,
+                deviceName,
+                preferences.getLastAppliedRemoteConfigUpdatedAt()
+            )
 
             val launchableNames = installedApps.map { it.packageName }.toSet()
             val manualPackages = remoteConfig.allowedPackages.filter { it !in launchableNames }.toSet()

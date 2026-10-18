@@ -12,6 +12,7 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.time.OffsetDateTime
 
 data class RemoteKioskConfig(
     val allowedPackages: Set<String>,
@@ -97,44 +98,16 @@ class RemoteConfigClient(
         request(path = "/api/security-events", method = "POST", body = payload.toString())
     }
 
-    fun fetchConfig(deviceId: String, deviceName: String): RemoteKioskConfig {
+    fun fetchConfig(
+        deviceId: String,
+        deviceName: String,
+        lastAppliedUpdatedAt: String = ""
+    ): RemoteKioskConfig {
         val body = request(
             path = "/api/config?deviceId=${urlEncode(deviceId)}&deviceName=${urlEncode(deviceName)}",
             method = "GET"
         )
-        val root = JSONObject(body)
-        val packages = root.optJSONArray("allowedPackages") ?: JSONArray()
-        val allowedPackages = buildSet {
-            for (index in 0 until packages.length()) {
-                val packageName = packages.optString(index).trim()
-                if (packageName.isNotEmpty()) add(packageName)
-            }
-        }
-        val pin = if (root.isNull("pin")) {
-            null
-        } else {
-            root.optString("pin", "").trim().ifEmpty { null }
-        }
-        if (pin != null && (pin.length !in 4..12 || pin.any { !it.isDigit() })) {
-            error("Server returned an invalid PIN")
-        }
-        val restrictionMode = if (root.has("restrictionMode")) {
-            RestrictionMode.fromWireValue(root.optString("restrictionMode"))
-        } else if (root.optBoolean("parentalLockEnabled", false)) {
-            RestrictionMode.PARENTAL
-        } else if (root.optBoolean("lockdownEnabled", false)) {
-            RestrictionMode.LOST
-        } else {
-            RestrictionMode.NONE
-        }
-        return RemoteKioskConfig(
-            allowedPackages = allowedPackages,
-            pin = pin,
-            restrictionMode = restrictionMode,
-            scheduleRules = RestrictionScheduleRule.fromJsonArray(root.optJSONArray("scheduleRules")),
-            locationRequestId = root.optLong("locationRequestId", 0L),
-            updatedAt = root.optString("updatedAt", "")
-        )
+        return parseConfig(body, deviceId, lastAppliedUpdatedAt)
     }
 
     private fun request(path: String, method: String, body: String? = null): String {
@@ -185,8 +158,84 @@ class RemoteConfigClient(
     private fun urlEncode(value: String): String =
         URLEncoder.encode(value, Charsets.UTF_8.name())
 
-    private companion object {
-        const val CONNECT_TIMEOUT_MS = 8_000
-        const val READ_TIMEOUT_MS = 12_000
+    companion object {
+        private const val CONNECT_TIMEOUT_MS = 8_000
+        private const val READ_TIMEOUT_MS = 12_000
+
+        internal fun parseConfig(
+            body: String,
+            deviceId: String,
+            lastAppliedUpdatedAt: String = ""
+        ): RemoteKioskConfig {
+            val root = JSONObject(body)
+            require(root.opt("configValid") == true && root.opt("serverConfigured") == true) {
+                "Remote config is not confirmed; keeping local settings"
+            }
+            require(root.opt("configSchemaVersion") is Int && root.getInt("configSchemaVersion") == 1) {
+                "Unsupported remote config format; update the server first"
+            }
+            require(root.get("deviceId") == deviceId) { "Remote config belongs to another device" }
+            val updatedAt = root.requiredString("updatedAt")
+            val revision = OffsetDateTime.parse(updatedAt).toInstant()
+            if (lastAppliedUpdatedAt.isNotBlank()) {
+                require(!revision.isBefore(OffsetDateTime.parse(lastAppliedUpdatedAt).toInstant())) {
+                    "Remote config is older than the applied config"
+                }
+            }
+
+            val packages = root.getJSONArray("allowedPackages")
+            val allowedPackages = buildSet {
+                for (index in 0 until packages.length()) {
+                    val value = packages.get(index)
+                    require(value is String && value.isNotBlank()) { "Invalid remote app list" }
+                    add(value.trim())
+                }
+            }
+            require(root.has("pin")) { "Incomplete remote config" }
+            val pin = if (root.isNull("pin")) null else root.requiredString("pin")
+            require(pin == null || (pin.length in 4..12 && pin.all { it in '0'..'9' })) {
+                "Server returned an invalid PIN"
+            }
+            val mode = root.requiredString("restrictionMode")
+            require(mode in setOf("none", "parental", "lost")) { "Invalid restriction mode" }
+            val requestId = root.get("locationRequestId")
+            require((requestId is Int || requestId is Long) && (requestId as Number).toLong() >= 0) {
+                "Invalid location request ID"
+            }
+            val schedule = root.getJSONArray("scheduleRules")
+            val timePattern = Regex("(?:[01][0-9]|2[0-3]):[0-5][0-9]")
+            for (index in 0 until schedule.length()) {
+                val rule = schedule.getJSONObject(index)
+                require(rule.requiredString("id").isNotBlank() && rule.get("enabled") is Boolean) {
+                    "Invalid schedule rule"
+                }
+                require(rule.requiredString("mode") in setOf("parental", "lost")) { "Invalid schedule mode" }
+                require(timePattern.matches(rule.requiredString("start")) && timePattern.matches(rule.requiredString("end"))) {
+                    "Invalid schedule time"
+                }
+                val days = rule.getJSONArray("days")
+                require(days.length() > 0) { "Invalid schedule days" }
+                for (dayIndex in 0 until days.length()) {
+                    val day = days.get(dayIndex)
+                    require((day is Int || day is Long) && (day as Number).toLong() in 1L..7L) {
+                        "Invalid schedule days"
+                    }
+                }
+            }
+            return RemoteKioskConfig(
+                allowedPackages = allowedPackages,
+                pin = pin,
+                restrictionMode = RestrictionMode.fromWireValue(mode),
+                scheduleRules = RestrictionScheduleRule.fromJsonArray(schedule),
+                locationRequestId = (requestId as Number).toLong(),
+                updatedAt = updatedAt
+            )
+        }
+
+        private fun JSONObject.requiredString(key: String): String {
+            val value = get(key)
+            require(value is String) { "Invalid remote field type: $key" }
+            return value
+        }
     }
 }

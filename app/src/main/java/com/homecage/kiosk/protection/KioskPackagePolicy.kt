@@ -1,6 +1,27 @@
 package com.homecage.kiosk.protection
 
 object KioskPackagePolicy {
+    data class WindowState(
+        val isApplication: Boolean,
+        val isForeground: Boolean,
+        val isAllowed: Boolean,
+        val canAnchorSupport: Boolean
+    )
+
+    fun hasAllowedForeground(windows: List<WindowState>): Boolean {
+        val relevant = windows.filter { it.isApplication || it.isForeground }
+        // A permitted background window must never excuse a visible forbidden app.
+        return relevant.any { it.isForeground } &&
+            relevant.all { it.isAllowed } &&
+            relevant.any { it.isApplication && it.canAnchorSupport }
+    }
+
+    fun isSupportWindowAllowed(
+        isKeyboard: Boolean,
+        isInputMethodWindow: Boolean,
+        isSystemWindow: Boolean
+    ): Boolean = if (isKeyboard) isInputMethodWindow else isSystemWindow
+
     val allowedSystemPackages: Set<String> = setOf(
         "android",
         "com.android.systemui",

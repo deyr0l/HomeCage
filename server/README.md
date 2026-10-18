@@ -108,6 +108,31 @@ On first contact, a new server-side device adopts the phone's local allowed-app 
 
 ## Config Updates
 
+### Safe Updates
+
+Update and restart the server before updating the Android app. The app requires
+`configValid: true`, `configSchemaVersion: 1`, a matching `deviceId`, and a complete
+config. Older servers without these fields are rejected; local phone settings stay
+unchanged. A confirmed empty app list is valid, but missing fields are not.
+
+Unreadable or corrupt storage returns HTTP 503 without overwriting the file.
+If server data is lost, a phone that has already applied a remote config will not
+bootstrap a replacement with empty restrictions. Restore a backup or explicitly
+save the desired device config in the web admin. Do not delete corrupt data to
+make the error disappear.
+The app also rejects revisions older than the one it already applied. After
+restoring an older backup, review and save its config to publish a new revision.
+
+The location button only requests location; it no longer saves edits in the form.
+Saving from a stale page returns HTTP 409 and requires reloading the page.
+
+Run the Russian regression tests from the repository root:
+
+```sh
+python3 -m unittest discover -s server/tests -v
+./gradlew testDebugUnitTest
+```
+
 The JSON endpoint accepts partial updates:
 
 ```bash

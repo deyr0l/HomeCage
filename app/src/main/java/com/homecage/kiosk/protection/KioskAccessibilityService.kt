@@ -1,16 +1,12 @@
 package com.homecage.kiosk.protection
 
 import android.accessibilityservice.AccessibilityService
-import android.app.AppOpsManager
-import android.app.usage.UsageEvents
-import android.app.usage.UsageStatsManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -37,18 +33,35 @@ class KioskAccessibilityService : AccessibilityService() {
     private var overlayView: View? = null
     private var lastBlockedPackage: String? = null
     private var lastHomeReturnAt = 0L
-    private var watchdogAttempts = 0
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLocaleManager.wrap(newBase))
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        val packageName = event?.packageName?.toString() ?: return
+        if (event == null) return
+        var packageName = event.packageName?.toString().orEmpty()
+        var className = event.className?.toString().orEmpty()
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+            val root = runCatching {
+                windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+                    .maxByOrNull { it.layer }?.root
+            }.getOrNull()
+            if (root != null) {
+                packageName = root.packageName?.toString().orEmpty()
+                className = root.className?.toString().orEmpty()
+                @Suppress("DEPRECATION") root.recycle()
+            }
+        }
         if (packageName.isBlank()) return
-        val className = event.className?.toString().orEmpty()
 
         val preferences = KioskPreferences(this)
+        if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED ||
+            event.eventType == AccessibilityEvent.TYPE_VIEW_LONG_CLICKED
+        ) {
+            rememberTrailEvent(event, packageName, className, preferences, "observed_action")
+            return
+        }
         if (
             preferences.isAdminSessionUnlocked() &&
             KioskPackagePolicy.isAdminSetupPackage(packageName)
@@ -60,7 +73,7 @@ class KioskAccessibilityService : AccessibilityService() {
 
         if (packageName == this.packageName) {
             rememberTrailEvent(event, packageName, className, preferences, DECISION_ALLOWED_SELF)
-            clearBlock()
+            if (lastBlockedPackage != null && verifyForegroundAllowed(preferences)) clearBlock()
             return
         }
 
@@ -146,45 +159,51 @@ class KioskAccessibilityService : AccessibilityService() {
     }
 
     private fun verifyForegroundAllowed(preferences: KioskPreferences): Boolean {
-        val appWindows = try {
-            windows?.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+        val visibleWindows = try {
+            windows
         } catch (_: Exception) {
             return false
-        }
+        }.orEmpty()
 
-        var hasAllowedAnchor = false
-        if (!appWindows.isNullOrEmpty()) {
-            for (window in appWindows) {
-                val root = try { window.root } catch (_: Exception) { null } ?: continue
-                val pkg = root.packageName?.toString()
-                val className = root.className?.toString()
-                @Suppress("DEPRECATION") root.recycle()
+        val states = visibleWindows.mapNotNull { window ->
+            val isApplication = window.type == AccessibilityWindowInfo.TYPE_APPLICATION
+            val isForeground = window.isActive || window.isFocused
+            if (!isApplication && !isForeground) return@mapNotNull null
 
-                if (pkg.isNullOrBlank()) continue
-                if (window.isFocused || window.isActive) {
-                    if (KioskPackagePolicy.isBlockedSystemSurface(pkg, className)) return false
-                    if (pkg in KioskPackagePolicy.blockedSystemPackages) return false
-                }
-                if (
-                    isAllowedForegroundPackage(
-                        packageName = pkg,
-                        className = className,
-                        preferences = preferences
-                    ) &&
-                    !isTransientPackage(pkg, preferences)
-                ) {
-                    hasAllowedAnchor = true
-                }
+            val root = try { window.root } catch (_: Exception) { null }
+            val pkg = root?.packageName?.toString().orEmpty()
+            val className = root?.className?.toString()
+            @Suppress("DEPRECATION") root?.recycle()
+
+            // Our blocking overlay is not evidence that the app underneath is safe.
+            if (!isApplication && pkg == packageName) return@mapNotNull null
+
+            val adminSetup = preferences.isAdminSessionUnlocked() &&
+                KioskPackagePolicy.isAdminSetupPackage(pkg)
+            val isKeyboard = KioskPackagePolicy.isKeyboardPackage(pkg) ||
+                isDefaultInputMethodPackage(pkg)
+            val supportOnly = isTransientPackage(pkg, preferences)
+            val allowed = when {
+                pkg.isBlank() -> false
+                adminSetup -> true
+                KioskPackagePolicy.isBlockedSystemSurface(pkg, className) -> false
+                pkg in KioskPackagePolicy.blockedSystemPackages -> false
+                supportOnly -> KioskPackagePolicy.isSupportWindowAllowed(
+                    isKeyboard = isKeyboard,
+                    isInputMethodWindow = window.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD,
+                    isSystemWindow = window.type == AccessibilityWindowInfo.TYPE_SYSTEM
+                )
+                else -> isAllowedForegroundPackage(pkg, className, preferences)
             }
+            KioskPackagePolicy.WindowState(
+                isApplication = isApplication,
+                isForeground = isForeground,
+                isAllowed = allowed,
+                canAnchorSupport = isApplication && allowed && (!supportOnly || adminSetup)
+            )
         }
-        if (hasAllowedAnchor) return true
-
-        val usagePackage = usageStatsForegroundPackage() ?: return false
-        return isAllowedForegroundPackage(
-            packageName = usagePackage,
-            className = null,
-            preferences = preferences
-        ) && !isTransientPackage(usagePackage, preferences)
+        // Usage history is stale by definition; never use it to override the visible windows.
+        return KioskPackagePolicy.hasAllowedForeground(states)
     }
 
     private fun isAllowedForegroundPackage(
@@ -224,45 +243,6 @@ class KioskAccessibilityService : AccessibilityService() {
         ).orEmpty()
         val component = ComponentName.unflattenFromString(rawInputMethod)
         return component?.packageName == packageName
-    }
-
-    @Suppress("DEPRECATION")
-    private fun usageStatsForegroundPackage(): String? {
-        if (!hasUsageAccess()) return null
-        val usageStatsManager = getSystemService(UsageStatsManager::class.java) ?: return null
-        val endTime = System.currentTimeMillis()
-        val events = runCatching {
-            usageStatsManager.queryEvents(endTime - USAGE_LOOKBACK_MS, endTime)
-        }.getOrNull() ?: return null
-
-        val event = UsageEvents.Event()
-        var latestPackage: String? = null
-        var latestTime = 0L
-        while (events.hasNextEvent()) {
-            events.getNextEvent(event)
-            val isForegroundEvent =
-                event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND ||
-                    (
-                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-                            event.eventType == UsageEvents.Event.ACTIVITY_RESUMED
-                        )
-            if (isForegroundEvent && event.timeStamp >= latestTime) {
-                latestPackage = event.packageName
-                latestTime = event.timeStamp
-            }
-        }
-        return latestPackage
-    }
-
-    private fun hasUsageAccess(): Boolean {
-        val appOpsManager = getSystemService(AppOpsManager::class.java) ?: return false
-        @Suppress("DEPRECATION")
-        val mode = appOpsManager.checkOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            applicationInfo.uid,
-            packageName
-        )
-        return mode == AppOpsManager.MODE_ALLOWED
     }
 
     private fun overlayWindowType(): Int =
@@ -321,14 +301,12 @@ class KioskAccessibilityService : AccessibilityService() {
         }
 
         handler.removeCallbacks(watchdogRunnable)
-        watchdogAttempts = 0
         handler.postDelayed(watchdogRunnable, WATCHDOG_INTERVAL_MS)
     }
 
     private val watchdogRunnable = object : Runnable {
         override fun run() {
             if (lastBlockedPackage == null) return
-            if (++watchdogAttempts > MAX_WATCHDOG_ATTEMPTS) return
             if (verifyForegroundAllowed(KioskPreferences(this@KioskAccessibilityService))) {
                 clearBlock()
                 return
@@ -339,62 +317,58 @@ class KioskAccessibilityService : AccessibilityService() {
     }
 
     private fun showOverlay(blockedPackage: String) {
-        handler.post {
-            runCatching {
-                removeOverlayNow()
-                val root = LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    gravity = Gravity.CENTER
-                    setPadding(dp(28), dp(28), dp(28), dp(28))
-                    background = GradientDrawable().apply {
-                        setColor(Color.rgb(248, 250, 252))
-                    }
+        runCatching {
+            removeOverlayNow()
+            val root = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(28), dp(28), dp(28), dp(28))
+                background = GradientDrawable().apply {
+                    setColor(Color.rgb(248, 250, 252))
                 }
-                val title = TextView(this).apply {
-                    text = getString(R.string.accessibility_block_title)
-                    textSize = 28f
-                    typeface = Typeface.DEFAULT_BOLD
-                    gravity = Gravity.CENTER
-                    setTextColor(Color.rgb(15, 23, 42))
-                }
-                val details = TextView(this).apply {
-                    text = getString(R.string.accessibility_block_message, blockedPackage)
-                    textSize = 16f
-                    gravity = Gravity.CENTER
-                    setTextColor(Color.rgb(71, 85, 105))
-                    setPadding(0, dp(14), 0, dp(18))
-                }
-                val button = Button(this).apply {
-                    text = getString(R.string.accessibility_return)
-                    setAllCaps(false)
-                    setOnClickListener { returnHome() }
-                }
-
-                root.addView(title)
-                root.addView(details)
-                root.addView(button)
-
-                val params = WindowManager.LayoutParams(
-                    WindowManager.LayoutParams.MATCH_PARENT,
-                    WindowManager.LayoutParams.MATCH_PARENT,
-                    overlayWindowType(),
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                    android.graphics.PixelFormat.TRANSLUCENT
-                )
-                getSystemService(WindowManager::class.java)?.addView(root, params)
-                overlayView = root
             }
+            val title = TextView(this).apply {
+                text = getString(R.string.accessibility_block_title)
+                textSize = 28f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                setTextColor(Color.rgb(15, 23, 42))
+            }
+            val details = TextView(this).apply {
+                text = getString(R.string.accessibility_block_message, blockedPackage)
+                textSize = 16f
+                gravity = Gravity.CENTER
+                setTextColor(Color.rgb(71, 85, 105))
+                setPadding(0, dp(14), 0, dp(18))
+            }
+            val button = Button(this).apply {
+                text = getString(R.string.accessibility_return)
+                setAllCaps(false)
+                setOnClickListener { returnHome() }
+            }
+
+            root.addView(title)
+            root.addView(details)
+            root.addView(button)
+
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                overlayWindowType(),
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                android.graphics.PixelFormat.TRANSLUCENT
+            )
+            getSystemService(WindowManager::class.java)?.addView(root, params)
+            overlayView = root
         }
     }
 
     private fun clearBlock() {
         handler.removeCallbacks(watchdogRunnable)
-        watchdogAttempts = 0
-        handler.post {
-            removeOverlayNow()
-            lastBlockedPackage = null
-            lastHomeReturnAt = 0L
-        }
+        removeOverlayNow()
+        lastBlockedPackage = null
+        lastHomeReturnAt = 0L
     }
 
     private fun removeOverlayNow() {
@@ -421,8 +395,6 @@ class KioskAccessibilityService : AccessibilityService() {
     private companion object {
         const val HOME_RETURN_THROTTLE_MS = 1_000L
         const val WATCHDOG_INTERVAL_MS = 500L
-        const val MAX_WATCHDOG_ATTEMPTS = 5
-        const val USAGE_LOOKBACK_MS = 30_000L
         const val MAX_SECURITY_FIELD_LENGTH = 180
         const val DECISION_ALLOWED_ADMIN_SETUP = "allowed_admin_setup"
         const val DECISION_ALLOWED_SELF = "allowed_self"

@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import html
 import json
+import logging
 import os
 import threading
 from dataclasses import dataclass
@@ -37,6 +38,8 @@ MAX_SECURITY_EVENTS = 50
 MAX_SECURITY_TRAIL_ENTRIES = 10
 MAX_SECURITY_FIELD_LENGTH = 180
 DATA_LOCK = threading.RLock()
+CONFIG_SCHEMA_VERSION = 1
+LOGGER = logging.getLogger(__name__)
 DAY_ALIASES = {
     "mon": 1,
     "monday": 1,
@@ -72,6 +75,7 @@ MESSAGES = {
         "auth_note": "Token auth",
         "clear_remote_pin": "Clear remote PIN command",
         "config": "Config",
+        "config_conflict": "Config has changed. Reload the page before saving.",
         "device": "Device",
         "device_id": "Device ID",
         "devices": "Devices",
@@ -125,6 +129,7 @@ MESSAGES = {
         "auth_note": "Token auth",
         "clear_remote_pin": "Очистить remote PIN-команду",
         "config": "Конфиг",
+        "config_conflict": "Настройки уже изменились. Обновите страницу перед сохранением.",
         "device": "Устройство",
         "device_id": "ID устройства",
         "devices": "Устройства",
@@ -178,6 +183,7 @@ MESSAGES = {
         "auth_note": "Autenticación por token",
         "clear_remote_pin": "Borrar comando remoto de PIN",
         "config": "Config",
+        "config_conflict": "La configuración cambió. Recarga la página antes de guardar.",
         "device": "Dispositivo",
         "device_id": "ID de dispositivo",
         "devices": "Dispositivos",
@@ -231,6 +237,7 @@ MESSAGES = {
         "auth_note": "令牌认证",
         "clear_remote_pin": "清除远程 PIN 命令",
         "config": "配置",
+        "config_conflict": "配置已更改。请刷新页面后再保存。",
         "device": "设备",
         "device_id": "设备 ID",
         "devices": "设备",
@@ -284,6 +291,7 @@ MESSAGES = {
         "auth_note": "トークン認証",
         "clear_remote_pin": "リモート PIN コマンドを消去",
         "config": "設定",
+        "config_conflict": "設定が変更されました。保存する前にページを再読み込みしてください。",
         "device": "端末",
         "device_id": "端末 ID",
         "devices": "端末",
@@ -548,18 +556,18 @@ def parse_schedule_rules_text(raw_text: str) -> list[dict[str, Any]]:
         if not line:
             continue
         parts = line.split()
-        if len(parts) < 2:
-            continue
+        if len(parts) not in (2, 3):
+            raise ValueError(f"Invalid schedule at line {line_index}")
         days = parse_days(parts[0])
         time_range = parts[1]
         if "-" not in time_range:
-            continue
+            raise ValueError(f"Invalid schedule at line {line_index}")
         start_raw, end_raw = time_range.split("-", 1)
         start_time = parse_time(start_raw)
         end_time = parse_time(end_raw)
         mode = normalize_restriction_mode(parts[2] if len(parts) > 2 else RESTRICTION_PARENTAL)
         if not days or not start_time or not end_time or mode == RESTRICTION_NONE:
-            continue
+            raise ValueError(f"Invalid schedule at line {line_index}")
         rules.append(
             {
                 "id": f"rule-{line_index}",
@@ -600,29 +608,48 @@ def parse_int(value: Any, default: int = 0) -> int:
 
 
 def read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
-    ensure_data_dir()
-    if not path.exists():
-        return default
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
         return default
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ConfigStorageError(f"Cannot read {path.name}") from error
+    if not isinstance(data, dict):
+        raise ConfigStorageError(f"Invalid object in {path.name}")
+    return data
+
+
+class ConfigStorageError(Exception):
+    """Storage errors must never masquerade as a fresh configuration."""
+
+
+def storage_error_response(request: Request, error: ConfigStorageError) -> Response:
+    LOGGER.error("Configuration storage unavailable: %s", error)
+    return Response(
+        content={"error": "config_storage_unavailable", "configValid": False},
+        status_code=503,
+        media_type="application/json",
+    )
 
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
-    ensure_data_dir()
-    temporary_path = path.with_name(
-        f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp"
-    )
-    temporary_path.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True),
-        encoding="utf-8",
-    )
-    temporary_path.replace(path)
+    try:
+        ensure_data_dir()
+        temporary_path = path.with_name(
+            f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+        )
+        temporary_path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        temporary_path.replace(path)
+    except OSError as error:
+        raise ConfigStorageError(f"Cannot write {path.name}") from error
 
 
 def default_config_data() -> dict[str, Any]:
     return {
+        "configSchemaVersion": CONFIG_SCHEMA_VERSION,
         "allowedPackages": [],
         "pin": None,
         "restrictionMode": RESTRICTION_NONE,
@@ -652,7 +679,60 @@ def default_device_state(device_id: str, device_name: str) -> dict[str, Any]:
     }
 
 
+def validate_stored_config(data: Any) -> None:
+    if not isinstance(data, dict):
+        raise ConfigStorageError("Invalid device config")
+    required = {"allowedPackages", "pin", "updatedAt"}
+    if "configSchemaVersion" in data:
+        if type(data["configSchemaVersion"]) is not int or data["configSchemaVersion"] != CONFIG_SCHEMA_VERSION:
+            raise ConfigStorageError("Unsupported config schema")
+        required |= {"restrictionMode", "scheduleRules", "locationRequestId", "serverConfigured"}
+    if not required <= data.keys():
+        raise ConfigStorageError("Incomplete device config")
+    packages = data["allowedPackages"]
+    if not isinstance(packages, list) or any(
+        not isinstance(package, str) or not package.strip() for package in packages
+    ):
+        raise ConfigStorageError("Invalid app list")
+    pin = data["pin"]
+    if pin is not None and (
+        not isinstance(pin, str) or not pin.isascii() or not pin.isdigit() or not 4 <= len(pin) <= 12
+    ):
+        raise ConfigStorageError("Invalid PIN format")
+    try:
+        updated_at = datetime.fromisoformat(data["updatedAt"].replace("Z", "+00:00"))
+        if updated_at.tzinfo is None:
+            raise ValueError("Missing time zone")
+    except (AttributeError, TypeError, ValueError) as error:
+        raise ConfigStorageError("Invalid config timestamp") from error
+    if "restrictionMode" in data and data["restrictionMode"] not in SUPPORTED_RESTRICTION_MODES:
+        raise ConfigStorageError("Invalid restriction mode")
+    for key in ("serverConfigured", "lockdownEnabled", "parentalLockEnabled"):
+        if key in data and type(data[key]) is not bool:
+            raise ConfigStorageError("Invalid config flag")
+    if "locationRequestId" in data and (
+        type(data["locationRequestId"]) is not int or data["locationRequestId"] < 0
+    ):
+        raise ConfigStorageError("Invalid location request ID")
+    if "scheduleRules" in data:
+        rules = data["scheduleRules"]
+        if not isinstance(rules, list) or len(normalize_schedule_rules(rules)) != len(rules):
+            raise ConfigStorageError("Invalid schedule rules")
+        for rule in rules:
+            if "enabled" in rule and type(rule["enabled"]) is not bool:
+                raise ConfigStorageError("Invalid schedule flag")
+            if not isinstance(rule.get("days"), list) or any(
+                type(day) is not int or day not in range(1, 8) for day in rule["days"]
+            ):
+                raise ConfigStorageError("Invalid schedule days")
+            if rule.get("mode") not in (RESTRICTION_PARENTAL, RESTRICTION_LOST):
+                raise ConfigStorageError("Invalid schedule mode")
+            if any(not isinstance(rule.get(key), str) for key in ("start", "end")):
+                raise ConfigStorageError("Invalid schedule time")
+
+
 def config_from_data(data: dict[str, Any]) -> Config:
+    validate_stored_config(data)
     has_configuration_marker = "serverConfigured" in data
     restriction_mode = normalize_restriction_mode(
         data.get("restrictionMode"),
@@ -683,6 +763,7 @@ def config_from_data(data: dict[str, Any]) -> Config:
 
 def config_to_data(config: Config) -> dict[str, Any]:
     return {
+        "configSchemaVersion": CONFIG_SCHEMA_VERSION,
         "allowedPackages": config.allowed_packages,
         "pin": config.pin,
         "restrictionMode": config.restriction_mode,
@@ -737,11 +818,19 @@ def legacy_devices_store() -> dict[str, Any]:
 
 
 def read_devices_store() -> dict[str, Any]:
-    store = read_json(DEVICES_PATH, {})
+    missing: dict[str, Any] = {}
+    store = read_json(DEVICES_PATH, missing)
+    if store is missing:
+        return legacy_devices_store()
     devices = store.get("devices")
-    if isinstance(devices, dict):
-        return {"schemaVersion": 1, "devices": devices}
-    return legacy_devices_store()
+    if type(store.get("schemaVersion")) is not int or store["schemaVersion"] != 1 or not isinstance(devices, dict):
+        raise ConfigStorageError("Invalid device store")
+    for device in devices.values():
+        if not isinstance(device, dict) or not isinstance(device.get("state"), dict):
+            raise ConfigStorageError("Invalid device record")
+        # Upgrade valid legacy configs in memory, not by guessing after a read failure.
+        device["config"] = config_to_data(config_from_data(device.get("config")))
+    return {"schemaVersion": 1, "devices": devices}
 
 
 def write_devices_store(store: dict[str, Any]) -> None:
@@ -827,6 +916,7 @@ def write_config(
 
 def config_to_api(config: Config, device_id: str) -> dict[str, Any]:
     data = config_to_data(config)
+    data["configValid"] = config.server_configured
     data["deviceId"] = device_id
     data["scheduleRulesText"] = schedule_rules_to_text(config.schedule_rules)
     return data
@@ -835,9 +925,10 @@ def config_to_api(config: Config, device_id: str) -> dict[str, Any]:
 def maybe_bootstrap_config_from_device_state(
     device: dict[str, Any],
     local_allowed_packages: Any,
+    applied_config_updated_at: Any = None,
 ) -> bool:
     config = config_from_data(device.get("config", default_config_data()))
-    if config.server_configured:
+    if config.server_configured or applied_config_updated_at:
         return False
 
     allowed_packages = normalize_packages(local_allowed_packages)
@@ -866,6 +957,7 @@ def maybe_bootstrap_config_from_stored_state(
     return maybe_bootstrap_config_from_device_state(
         device,
         state.get("localAllowedPackages") if isinstance(state, dict) else None,
+        state.get("appliedConfigUpdatedAt"),
     )
 
 
@@ -918,23 +1010,31 @@ def write_config_from_payload(
 ) -> Config:
     allowed_packages = current_config.allowed_packages
     if "allowedPackages" in payload:
-        raw_packages = payload.get("allowedPackages") or []
+        raw_packages = payload["allowedPackages"]
         if isinstance(raw_packages, str):
             allowed_packages = split_packages(raw_packages)
         else:
-            allowed_packages = [str(package) for package in raw_packages]
+            if not isinstance(raw_packages, list) or any(
+                not isinstance(package, str) or not package.strip() for package in raw_packages
+            ):
+                raise ValueError("Invalid app list")
+            allowed_packages = raw_packages
     elif "allowedPackagesText" in payload:
-        allowed_packages = split_packages(str(payload.get("allowedPackagesText") or ""))
+        if not isinstance(payload["allowedPackagesText"], str):
+            raise ValueError("Invalid app list text")
+        allowed_packages = split_packages(payload["allowedPackagesText"])
 
     pin = current_config.pin
     if parse_bool(payload.get("clearPin")):
         pin = None
     elif "pin" in payload:
         raw_pin = payload.get("pin")
+        if raw_pin is not None and not isinstance(raw_pin, str):
+            raise ValueError("Invalid PIN type")
         pin = str(raw_pin).strip() if raw_pin is not None else None
         if pin == "":
             pin = current_config.pin
-    if pin is not None and (not pin.isdigit() or len(pin) not in range(4, 13)):
+    if pin is not None and (not pin.isascii() or not pin.isdigit() or len(pin) not in range(4, 13)):
         raise ValueError("PIN must contain 4-12 digits")
 
     location_request_id = current_config.location_request_id
@@ -943,6 +1043,8 @@ def write_config_from_payload(
 
     restriction_mode = current_config.restriction_mode
     if "restrictionMode" in payload:
+        if payload["restrictionMode"] not in SUPPORTED_RESTRICTION_MODES:
+            raise ValueError("Invalid restriction mode")
         restriction_mode = normalize_restriction_mode(payload.get("restrictionMode"))
     elif "parentalLockEnabled" in payload or "lockdownEnabled" in payload:
         restriction_mode = normalize_restriction_mode(
@@ -953,9 +1055,15 @@ def write_config_from_payload(
 
     schedule_rules = current_config.schedule_rules
     if "scheduleRules" in payload:
+        try:
+            validate_stored_config({**config_to_data(current_config), "scheduleRules": payload["scheduleRules"]})
+        except ConfigStorageError as error:
+            raise ValueError("Invalid schedule rules") from error
         schedule_rules = normalize_schedule_rules(payload.get("scheduleRules"))
     elif "scheduleRulesText" in payload:
-        schedule_rules = parse_schedule_rules_text(str(payload.get("scheduleRulesText") or ""))
+        if not isinstance(payload["scheduleRulesText"], str):
+            raise ValueError("Invalid schedule text")
+        schedule_rules = parse_schedule_rules_text(payload["scheduleRulesText"])
 
     return write_config(
         device_id=device_id,
@@ -964,6 +1072,13 @@ def write_config_from_payload(
         restriction_mode=restriction_mode,
         schedule_rules=schedule_rules,
         location_request_id=location_request_id,
+        server_configured=current_config.server_configured or any(
+            key in payload for key in (
+                "allowedPackages", "allowedPackagesText", "pin", "clearPin",
+                "restrictionMode", "parentalLockEnabled", "lockdownEnabled",
+                "scheduleRules", "scheduleRulesText",
+            )
+        ),
     )
 
 
@@ -1570,6 +1685,7 @@ def render_admin_page(
   <main>
     <form method="post" action="{form_action}">
       <input type="hidden" name="deviceId" value="{html.escape(selected_device_id or '')}">
+      <input type="hidden" name="configUpdatedAt" value="{updated_at}">
       <section class="panel">
         <h2>{html.escape(message(language, "allowed_apps"))}</h2>
         <div class="app-list">{app_list}</div>
@@ -1597,7 +1713,7 @@ def render_admin_page(
 	        <h2>{html.escape(message(language, "location_request"))}</h2>
 	        <p class="muted">{location_request_html}</p>
 	        <p class="muted"><strong>{html.escape(message(language, "latest_location"))}:</strong><br>{location_html}</p>
-	        <button type="submit" name="action" value="requestLocation">{html.escape(message(language, "request_location"))}</button>
+	        <button type="submit" name="action" value="requestLocation" formnovalidate>{html.escape(message(language, "request_location"))}</button>
 	      </section>
 	      <section class="panel">
 	        <h2>{html.escape(message(language, "security_events"))}</h2>
@@ -1657,41 +1773,38 @@ async def update_config(request: Request) -> Redirect | Response:
 
     language = resolve_language(request)
     form = await request.form()
-    selected_packages = get_form_list(form, "package")
-    manual_packages = split_packages(str(form.get("manualPackages") or ""))
-    store = read_devices_store()
-    device_id = resolve_device_id(request, store, {"deviceId": form.get("deviceId")})
-    if not device_id:
-        return Response(
-            content=message(language, "no_devices"),
-            status_code=400,
-            media_type="text/plain",
-        )
-    current_config = read_config(device_id)
-    action = str(form.get("action") or "save")
-    restriction_mode = normalize_restriction_mode(form.get("restrictionMode"))
-    schedule_rules = parse_schedule_rules_text(str(form.get("scheduleRulesText") or ""))
-    location_request_id = current_config.location_request_id
-    if action == "requestLocation":
-        location_request_id += 1
-    pin = str(form.get("pin") or "").strip() or current_config.pin
-    if form.get("clearPin") == "1":
-        pin = None
-    if pin is not None and (not pin.isdigit() or len(pin) not in range(4, 13)):
-        return Response(
-            content=message(language, "pin_invalid"),
-            status_code=400,
-            media_type="text/plain",
-        )
-
-    write_config(
-        device_id,
-        selected_packages + manual_packages,
-        pin,
-        restriction_mode,
-        schedule_rules,
-        location_request_id,
-    )
+    with DATA_LOCK:
+        store = read_devices_store()
+        device_id = resolve_device_id(request, store, {"deviceId": form.get("deviceId")})
+        if not device_id:
+            return Response(content=message(language, "no_devices"), status_code=400, media_type="text/plain")
+        current_config = read_config(device_id)
+        if form.get("action") == "requestLocation":
+            # This command must ignore every editable field, including a stale or invalid PIN.
+            write_config_from_payload(device_id, {"requestLocation": True}, current_config)
+        else:
+            if form.get("configUpdatedAt") != current_config.updated_at:
+                return Response(content=message(language, "config_conflict"), status_code=409, media_type="text/plain")
+            pin = str(form.get("pin") or "").strip() or current_config.pin
+            if form.get("clearPin") == "1":
+                pin = None
+            if pin is not None and (not pin.isascii() or not pin.isdigit() or len(pin) not in range(4, 13)):
+                return Response(content=message(language, "pin_invalid"), status_code=400, media_type="text/plain")
+            mode = form.get("restrictionMode")
+            if mode not in SUPPORTED_RESTRICTION_MODES:
+                return Response(content="Invalid restriction mode", status_code=400, media_type="text/plain")
+            try:
+                schedule_rules = parse_schedule_rules_text(str(form.get("scheduleRulesText") or ""))
+            except ValueError as error:
+                return Response(content=str(error), status_code=400, media_type="text/plain")
+            write_config(
+                device_id,
+                get_form_list(form, "package") + split_packages(str(form.get("manualPackages") or "")),
+                pin,
+                mode,
+                schedule_rules,
+                current_config.location_request_id,
+            )
     return Redirect(path=f"/?lang={quote(language)}&deviceId={quote(device_id)}")
 
 
@@ -1699,21 +1812,22 @@ async def update_config(request: Request) -> Redirect | Response:
 async def api_config(request: Request) -> Response:
     if not is_authorized(request):
         return unauthorized()
-    store = read_devices_store()
-    device_id = resolve_device_id(request, store)
-    if not device_id:
-        device_id = normalize_device_id(request.query_params.get("deviceId"))
-        ensure_device(
-            store,
-            device_id,
-            request.query_params.get("deviceName"),
-        )
-        write_devices_store(store)
-    elif maybe_bootstrap_config_from_stored_state(store, device_id):
-        write_devices_store(store)
+    with DATA_LOCK:
+        store = read_devices_store()
+        device_id = resolve_device_id(request, store) or LEGACY_DEVICE_ID
+        device = ensure_device(store, device_id, request.query_params.get("deviceName"))
+        if maybe_bootstrap_config_from_stored_state(store, device_id):
+            write_devices_store(store)
+        config = config_from_data(device["config"])
+        if not config.server_configured:
+            return Response(
+                content={"error": "config_not_initialized", "configValid": False},
+                status_code=503,
+                media_type="application/json",
+            )
     return Response(
         content=json.dumps(
-            config_to_api(read_config(device_id), device_id),
+            config_to_api(config, device_id),
             ensure_ascii=False,
         ),
         media_type="application/json",
@@ -1738,24 +1852,19 @@ async def api_update_config(request: Request) -> Response:
         return unauthorized()
 
     payload = await request.json()
-    store = read_devices_store()
-    device_id = resolve_device_id(request, store, payload)
-    if not device_id:
-        return Response(
-            content="deviceId is required",
-            status_code=400,
-            media_type="text/plain",
-        )
-    ensure_device(store, device_id, payload.get("deviceName"))
-    write_devices_store(store)
-    try:
-        config = write_config_from_payload(device_id, payload, read_config(device_id))
-    except ValueError as error:
-        return Response(
-            content=str(error),
-            status_code=400,
-            media_type="text/plain",
-        )
+    if not isinstance(payload, dict):
+        return Response(content="Invalid config payload", status_code=400, media_type="text/plain")
+    with DATA_LOCK:
+        store = read_devices_store()
+        device_id = resolve_device_id(request, store, payload)
+        if not device_id:
+            return Response(content="deviceId is required", status_code=400, media_type="text/plain")
+        ensure_device(store, device_id, payload.get("deviceName"))
+        write_devices_store(store)
+        try:
+            config = write_config_from_payload(device_id, payload, read_config(device_id))
+        except ValueError as error:
+            return Response(content=str(error), status_code=400, media_type="text/plain")
 
     return Response(
         content=json.dumps(config_to_api(config, device_id), ensure_ascii=False),
@@ -1810,6 +1919,7 @@ async def api_device_state(request: Request) -> Response:
         maybe_bootstrap_config_from_device_state(
             device,
             payload.get("localAllowedPackages"),
+            payload.get("appliedConfigUpdatedAt"),
         )
         previous_state = device.get("state") if isinstance(device.get("state"), dict) else {}
         previous_location = previous_state.get("location") if isinstance(previous_state, dict) else None
@@ -1895,6 +2005,7 @@ async def api_security_event(request: Request) -> Response:
 
 
 app = Litestar(
+    exception_handlers={ConfigStorageError: storage_error_response},
     route_handlers=[
         admin,
         update_config,

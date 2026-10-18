@@ -51,6 +51,11 @@ kotlin {
     jvmToolchain(17)
 }
 
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
+}
+
 tasks.matching { task -> task.name in releaseTasks }.configureEach {
     doFirst {
         check(releaseKeystorePropertiesFile.isFile) {
